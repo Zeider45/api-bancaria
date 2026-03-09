@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: sib_postgres
+    environment:
+      POSTGRES_DB: sib_bridge
+      POSTGRES_USER: sib_user
+      POSTGRES_PASSWORD: sib_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sib_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sib_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - sib_network
+
+  backend:
+    build: ./backend
+    container_name: sib_backend
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sib_network
+
+  celery_worker:
+    build: ./backend
+    container_name: sib_celery
+    command: sh -c "python manage.py migrate && celery -A config.celery worker --loglevel=info"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    networks:
+      - sib_network
+
+  celery_beat:
+    build: ./backend
+    container_name: sib_celery_beat
+    command: sh -c "python manage.py migrate && celery -A config.celery beat --loglevel=info"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - celery_worker
+      - redis
+      - postgres
+    networks:
+      - sib_network
+
+  frontend:
+    build: ./frontend
+    container_name: sib_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-secure-nextauth-secret-key-change-this-in-prod
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - sib_network
+
+volumes:
+  postgres_data:
+
+networks:
+  sib_network:
+    driver: bridge

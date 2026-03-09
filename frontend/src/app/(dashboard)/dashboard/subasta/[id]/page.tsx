@@ -1,0 +1,1 @@
+export { default } from '../../../subasta/[id]/page';

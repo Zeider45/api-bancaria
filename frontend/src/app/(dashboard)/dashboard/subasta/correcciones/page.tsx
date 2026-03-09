@@ -1,0 +1,1 @@
+export { default } from '../../../subasta/correciones/page';
