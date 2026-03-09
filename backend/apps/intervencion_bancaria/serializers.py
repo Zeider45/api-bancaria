@@ -3,6 +3,7 @@ from pydantic import field_validator, Field, condecimal
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
+from apps.core import selectors
 from apps.core.utils import parse_rif, validate_rif_range
 
 
@@ -31,6 +32,19 @@ class IntervencionTransaccionInput(Schema):
     tipo_cuenta_moneda_extranjera: Optional[int] = 0
     destino_fondos: int
     medio_pago: int
+
+    @field_validator('codigo_ente_supervisado')
+    def validate_codigo_ente_supervisado(cls, v):
+        if not selectors.is_valid_ente_supervisado(v):
+            raise ValueError('Código de ente supervisado inválido (T001)')
+        return v
+
+    @field_validator('tipo_intervencion')
+    def validate_tipo_intervencion(cls, v):
+        normalized = str(v).strip()
+        if not selectors.is_valid_mecanismo_cambiario(normalized):
+            raise ValueError('Tipo de intervención inválido (T002)')
+        return normalized
     
     @field_validator('fecha_operacion_cliente')
     def validate_fecha_operacion(cls, v, values):
@@ -54,9 +68,19 @@ class IntervencionTransaccionInput(Schema):
     @field_validator('moneda')
     def validate_moneda(cls, v):
         """Validate currency code"""
-        if v == 928:
+        moneda = selectors.get_moneda(str(v))
+        if not moneda:
+            raise ValueError('Código de moneda inválido (T003)')
+        if not moneda.is_selectable:
             raise ValueError('Moneda no puede ser Bolívar (928)')
         return v
+
+    @field_validator('actividad_economica_cliente')
+    def validate_actividad_economica(cls, v):
+        normalized = str(v).strip()
+        if not selectors.is_valid_actividad_economica(normalized):
+            raise ValueError('Actividad económica inválida (T004)')
+        return normalized
 
 
 class IntervencionBatchInput(Schema):

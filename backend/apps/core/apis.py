@@ -9,6 +9,8 @@ from typing import Dict, Any
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from apps.core import selectors
+
 api = NinjaAPI(title="SIB API Bridge", version="1.0.0")
 
 
@@ -64,3 +66,9 @@ def get_config(request):
         'timezone': settings.TIME_ZONE,
         'celery_broker': settings.CELERY_BROKER_URL.split('@')[0] if '@' in settings.CELERY_BROKER_URL else 'redis'
     }
+
+
+@require_http_methods(["GET"])
+def get_intervencion_api01_catalogs(request):
+    """Return reusable API-01 lookup tables stored in core."""
+    return JsonResponse(selectors.get_intervencion_api01_catalogs())
