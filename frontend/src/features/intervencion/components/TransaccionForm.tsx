@@ -60,9 +60,9 @@ export function TransaccionForm() {
     () => ({
       codigo_ente_supervisado: '0108',
       tipo_intervencion: '1',
-      fecha_intervencion: getLocalDateTime(),
-      codigo_identificacion_intervencion: `INT-${Date.now().toString().slice(-6)}`,
-      fecha_operacion_cliente: getLocalDateTime(),
+      fecha_intervencion: '',
+      codigo_identificacion_intervencion: '',
+      fecha_operacion_cliente: '',
       moneda: 840,
       identificacion_cliente: 'J123456789',
       nombre_cliente: '',
@@ -110,10 +110,17 @@ export function TransaccionForm() {
 
     loadCatalogs();
 
+    reset({
+      ...defaultValues,
+      codigo_identificacion_intervencion: `INT-${Date.now().toString().slice(-6)}`,
+      fecha_intervencion: getLocalDateTime(),
+      fecha_operacion_cliente: getLocalDateTime(),
+    });
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [defaultValues, reset]);
 
   const onSubmit = (data: TransaccionFormData) => {
     setError(null);

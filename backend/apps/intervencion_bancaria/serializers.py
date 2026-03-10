@@ -1,5 +1,5 @@
 from ninja import Schema
-from pydantic import field_validator, Field, condecimal
+from pydantic import field_validator, Field, model_validator, condecimal
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
@@ -45,13 +45,13 @@ class IntervencionTransaccionInput(Schema):
         if not selectors.is_valid_mecanismo_cambiario(normalized):
             raise ValueError('Tipo de intervención inválido (T002)')
         return normalized
-    
-    @field_validator('fecha_operacion_cliente')
-    def validate_fecha_operacion(cls, v, values):
-        """Validate fecha_operacion <= fecha_intervencion"""
-        if 'fecha_intervencion' in values and v > values['fecha_intervencion']:
+
+    @model_validator(mode='after')
+    def validate_fechas(self):
+        """Validate fecha_operacion_cliente <= fecha_intervencion."""
+        if self.fecha_operacion_cliente > self.fecha_intervencion:
             raise ValueError('Fecha operación no puede ser mayor a fecha intervención')
-        return v
+        return self
     
     @field_validator('identificacion_cliente')
     def validate_rif(cls, v):

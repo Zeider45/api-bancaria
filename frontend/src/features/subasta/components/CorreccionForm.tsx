@@ -6,7 +6,9 @@ import { z } from 'zod';
 import { SubastaSolicitud, SubastaCorreccion } from '../types';
 import { correctSolicitud } from '../actions';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
+import { IntervencionApi01Catalogs } from '@/features/intervencion/types';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 
 const correccionSchema = z.object({
@@ -32,6 +34,22 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [catalogs, setCatalogs] = useState<IntervencionApi01Catalogs | null>(null);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
+
+  useEffect(() => {
+    async function loadCatalogs() {
+      try {
+        const data = await fetchIntervencionApi01Catalogs();
+        setCatalogs(data);
+      } catch (error) {
+        console.error('Failed to load catalogs:', error);
+      } finally {
+        setIsLoadingCatalogs(false);
+      }
+    }
+    loadCatalogs();
+  }, []);
 
   const {
     register,
@@ -106,10 +124,18 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
            <label className="block text-sm font-medium text-gray-700 mb-1">
             Actividad Económica
           </label>
-          <input
+          <select
             {...register('actividad_economica_cliente')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            disabled={isLoadingCatalogs}
+          >
+            <option value="">Seleccione una actividad...</option>
+            {catalogs?.actividades_economicas.map((act) => (
+              <option key={act.code} value={act.code}>
+                {act.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Monto Divisa */}
@@ -158,11 +184,23 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo Cuenta MN
             </label>
-            <input
-                type="number"
+            <select
                 {...register('tipo_cuenta_moneda_nacional')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+                disabled={isLoadingCatalogs}
+            >
+              <option value="">Seleccione tipo de cuenta...</option>
+              {catalogs?.instrumentos_captacion
+                .filter(ic => ['8','9','10'].includes(ic.code))
+                .map((ic) => (
+                <option key={ic.code} value={ic.code}>
+                  {ic.name}
+                </option>
+              ))}
+            </select>
+            {errors.tipo_cuenta_moneda_nacional && (
+              <p className="text-red-500 text-xs mt-1">{errors.tipo_cuenta_moneda_nacional.message}</p>
+            )}
         </div>
 
         {/* Cuenta Moneda Extranjera */}
@@ -188,9 +226,16 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
             <select
                 {...register('tipo_cuenta_moneda_extranjera')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoadingCatalogs}
             >
-                <option value="31">31</option>
-                <option value="32">32</option>
+              <option value="">Seleccione tipo de cuenta ME...</option>
+              {catalogs?.instrumentos_captacion
+                .filter(ic => ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '31', '32'].includes(ic.code))
+                .map((ic) => (
+                <option key={ic.code} value={ic.code}>
+                  {ic.name}
+                </option>
+              ))}
             </select>
         </div>
 
@@ -198,22 +243,36 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Destino Fondos
           </label>
-          <input
-            type="number"
+          <select
             {...register('destino_fondos')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            disabled={isLoadingCatalogs}
+          >
+            <option value="">Seleccione destino de fondos...</option>
+            {catalogs?.destinos_fondos.map((df) => (
+              <option key={df.code} value={df.code}>
+                {df.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+           <label className="block text-sm font-medium text-gray-700 mb-1">
             Medio de Pago
           </label>
-          <input
-            type="number"
+          <select
             {...register('medio_pago')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            disabled={isLoadingCatalogs}
+          >
+            <option value="">Seleccione medio de pago...</option>
+             {catalogs?.medios_pago.map((mp) => (
+              <option key={mp.code} value={mp.code}>
+                {mp.name}
+              </option>
+            ))}
+          </select>
         </div>
 
       </div>

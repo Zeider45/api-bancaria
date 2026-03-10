@@ -1,9 +1,8 @@
 'use client';
 
 import { SubastaSolicitud } from '../types';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import Link from 'next/link';
+import { formatAppDate, formatAppDateTime, formatAppNumber } from '@/shared/utils/format';
 
 interface SolicitudTableProps {
   solicitudes: SubastaSolicitud[];
@@ -78,16 +77,16 @@ export function SolicitudTable({ solicitudes }: SolicitudTableProps) {
                 {solicitud.identificacion_cliente}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${solicitud.monto_divisa.toLocaleString(undefined, {
+                ${formatAppNumber(solicitud.monto_divisa, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 })}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {format(new Date(solicitud.fecha_solicitud_cliente), 'dd/MM/yyyy HH:mm', { locale: es })}
+                {formatAppDateTime(solicitud.fecha_solicitud_cliente)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {format(new Date(solicitud.fecha_subasta), 'dd/MM/yyyy', { locale: es })}
+                {formatAppDate(solicitud.fecha_subasta)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[solicitud.status]}`}>

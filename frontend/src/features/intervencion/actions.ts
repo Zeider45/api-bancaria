@@ -1,6 +1,6 @@
 'use server';
 
-import { api } from '@/core/api';
+import { api, getApiErrorMessage } from '@/core/api';
 import { IntervencionTransaccion, IntervencionCorreccion, IntervencionCreateInput } from './types';
 
 export async function getTransacciones(status?: string): Promise<IntervencionTransaccion[]> {
@@ -41,10 +41,10 @@ export async function correctTransaccion(
   try {
     await api.post(`/intervencion/transacciones/${id}/correct/`, data);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: error.response?.data?.detail || 'Error al corregir transacción',
+      error: getApiErrorMessage(error, 'Error al corregir transacción'),
     };
   }
 }
@@ -55,13 +55,10 @@ export async function createTransaccion(
   try {
     await api.post('/intervencion/transacciones/create', data);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error:
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        'Error al crear la transacción',
+      error: getApiErrorMessage(error, 'Error al crear la transacción'),
     };
   }
 }
