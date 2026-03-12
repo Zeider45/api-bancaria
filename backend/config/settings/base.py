@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.intervencion_bancaria',
     'apps.subasta_privada',  # <-- NUEVO
+    'apps.mesa_de_cambio',
 ]
 
 MIDDLEWARE = [

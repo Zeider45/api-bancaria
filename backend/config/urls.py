@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/internal/v1/', include('apps.core.urls')),
     path('api/internal/v1/intervencion/', include('apps.intervencion_bancaria.urls')),
     path('api/internal/v1/subasta/', include('apps.subasta_privada.urls')),  # <-- NUEVO
+    path('api/internal/v1/mesa-de-cambio/', include('apps.mesa_de_cambio.urls')),
 ]
 
 if settings.DEBUG:
