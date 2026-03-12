@@ -29,10 +29,4 @@ app.conf.beat_schedule = {
         'task': 'apps.subasta_privada.tasks.retry_failed_solicitudes',
         'schedule': crontab(minute='*/30'),
     },
-
-    # Mesa de Cambio - cada hora
-    'process-mesa-de-cambio-hourly': {
-        'task': 'apps.operaciones_mesa_de_cambio.tasks.process_pending_operaciones',
-        'schedule': crontab(minute=0),  # Every hour at minute 0
-    },
 }
