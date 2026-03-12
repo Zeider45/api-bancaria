@@ -11,6 +11,11 @@ const sections = [
     title: 'Subasta privada',
     description: 'Consulte solicitudes, estadísticas y correcciones pendientes.',
   },
+  {
+    href: '/dashboard/mesa-de-cambio',
+    title: 'Mesa de Cambio',
+    description: 'Gestione operaciones de compraventa de divisas y correcciones.',
+  },
 ];
 
 export default function DashboardPage() {
