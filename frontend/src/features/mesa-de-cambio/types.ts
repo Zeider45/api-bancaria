@@ -2,7 +2,7 @@ export interface OperacionMesaDeCambio {
   id: number;
   identificacion_ente_supervisado: string;
   tipo_pacto: string;
-  moneda: string;
+  moneda: number | string;
   fecha_pacto: string;
   monto_divisa: number;
   tipo_cambio_bs: number;
@@ -20,7 +20,7 @@ export interface OperacionMesaDeCambio {
 export interface OperacionMesaDeCambioInput {
   identificacion_ente_supervisado: string;
   tipo_pacto: string;
-  moneda: string;
+  moneda: number;
   fecha_pacto: string;
   monto_divisa: number;
   tipo_cambio_bs: number;
@@ -33,8 +33,8 @@ export interface OperacionMesaDeCambioInput {
   tipo_cuenta_moneda_nacional_cliente_oferente: number;
   codigo_cuenta_moneda_extranjera_oferente: string;
   tipo_cuenta_moneda_extranjera_cliente_oferente: number;
-  origen_fondos: string;
-  medio_pago_oferente: string;
+  origen_fondos: number;
+  medio_pago_oferente: number;
   // Cliente Demandante
   identificacion_cliente_demandante: string;
   nombre_cliente_demandante: string;
@@ -43,13 +43,13 @@ export interface OperacionMesaDeCambioInput {
   tipo_cuenta_moneda_nacional_cliente_demandante: number;
   codigo_cuenta_moneda_extranjera_demandante: string;
   tipo_cuenta_moneda_extranjera_cliente_demandante: number;
-  destino_fondos: string;
-  medio_pago_demandante: string;
+  destino_fondos: number;
+  medio_pago_demandante: number;
 }
 
 export interface OperacionMesaDeCambioCorreccion {
   tipo_pacto?: string;
-  moneda?: string;
+  moneda?: number;
   monto_divisa?: number;
   tipo_cambio_bs?: number;
   contravalor_bs?: number;
@@ -59,16 +59,16 @@ export interface OperacionMesaDeCambioCorreccion {
   tipo_cuenta_moneda_nacional_cliente_oferente?: number;
   codigo_cuenta_moneda_extranjera_oferente?: string;
   tipo_cuenta_moneda_extranjera_cliente_oferente?: number;
-  origen_fondos?: string;
-  medio_pago_oferente?: string;
+  origen_fondos?: number;
+  medio_pago_oferente?: number;
   nombre_cliente_demandante?: string;
   actividad_economica_cliente_demandante?: string;
   codigo_cuenta_moneda_nacional_demandante?: string;
   tipo_cuenta_moneda_nacional_cliente_demandante?: number;
   codigo_cuenta_moneda_extranjera_demandante?: string;
   tipo_cuenta_moneda_extranjera_cliente_demandante?: number;
-  destino_fondos?: string;
-  medio_pago_demandante?: string;
+  destino_fondos?: number;
+  medio_pago_demandante?: number;
 }
 
 export interface OperacionMesaDeCambioStats {

@@ -6,31 +6,38 @@ import { z } from 'zod';
 import { OperacionMesaDeCambio, OperacionMesaDeCambioCorreccion } from '../types';
 import { correctOperacion } from '../actions';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
+import type { IntervencionApi01Catalogs } from '@/features/intervencion/types';
+
+const optionalNumber = z.preprocess(
+  (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
+  z.number().finite().optional()
+);
 
 const correccionSchema = z.object({
   tipo_pacto: z.string().optional(),
-  moneda: z.string().optional(),
-  monto_divisa: z.coerce.number().positive().optional(),
-  tipo_cambio_bs: z.coerce.number().positive().optional(),
-  contravalor_bs: z.coerce.number().positive().optional(),
+  moneda: optionalNumber,
+  monto_divisa: optionalNumber,
+  tipo_cambio_bs: optionalNumber,
+  contravalor_bs: optionalNumber,
   nombre_cliente_oferente: z.string().optional(),
   actividad_economica_cliente_oferente: z.string().optional(),
   codigo_cuenta_moneda_nacional_oferente: z.string().length(20).optional(),
   tipo_cuenta_moneda_nacional_cliente_oferente: z.coerce.number().int().optional(),
   codigo_cuenta_moneda_extranjera_oferente: z.string().length(20).optional(),
   tipo_cuenta_moneda_extranjera_cliente_oferente: z.coerce.number().int().optional(),
-  origen_fondos: z.string().optional(),
-  medio_pago_oferente: z.string().optional(),
+  origen_fondos: optionalNumber,
+  medio_pago_oferente: optionalNumber,
   nombre_cliente_demandante: z.string().optional(),
   actividad_economica_cliente_demandante: z.string().optional(),
   codigo_cuenta_moneda_nacional_demandante: z.string().length(20).optional(),
   tipo_cuenta_moneda_nacional_cliente_demandante: z.coerce.number().int().optional(),
   codigo_cuenta_moneda_extranjera_demandante: z.string().length(20).optional(),
   tipo_cuenta_moneda_extranjera_cliente_demandante: z.coerce.number().int().optional(),
-  destino_fondos: z.string().optional(),
-  medio_pago_demandante: z.string().optional(),
+  destino_fondos: optionalNumber,
+  medio_pago_demandante: optionalNumber,
 });
 
 type CorreccionFormData = z.infer<typeof correccionSchema>;
@@ -46,6 +53,8 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [catalogs, setCatalogs] = useState<IntervencionApi01Catalogs | null>(null);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
 
   const {
     register,
@@ -55,7 +64,10 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
     resolver: zodResolver(correccionSchema),
     defaultValues: {
       tipo_pacto: operacion.tipo_pacto,
-      moneda: operacion.moneda,
+      moneda:
+        operacion.moneda === '' || operacion.moneda === null || operacion.moneda === undefined
+          ? undefined
+          : Number(operacion.moneda),
       monto_divisa: operacion.monto_divisa,
       tipo_cambio_bs: operacion.tipo_cambio_bs,
       contravalor_bs: operacion.contravalor_bs,
@@ -63,6 +75,24 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
       nombre_cliente_demandante: operacion.nombre_cliente_demandante,
     },
   });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCatalogs = async () => {
+      setIsLoadingCatalogs(true);
+      const result = await fetchIntervencionApi01Catalogs();
+      if (!active) return;
+      setCatalogs(result);
+      setIsLoadingCatalogs(false);
+    };
+
+    loadCatalogs();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const onSubmit = (data: CorreccionFormData) => {
     setError(null);
@@ -105,7 +135,22 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-            <input {...register('moneda')} className={inputClassName} />
+            {catalogs?.monedas?.length ? (
+              <select
+                {...register('moneda')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.monedas.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}{item.description ? ` (${item.description})` : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('moneda')} className={inputClassName} />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Monto divisa</label>
@@ -151,10 +196,25 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Actividad económica oferente
             </label>
-            <input
-              {...register('actividad_economica_cliente_oferente')}
-              className={inputClassName}
-            />
+            {catalogs?.actividades_economicas?.length ? (
+              <select
+                {...register('actividad_economica_cliente_oferente')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.actividades_economicas.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                {...register('actividad_economica_cliente_oferente')}
+                className={inputClassName}
+              />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -215,13 +275,43 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Origen de fondos</label>
-            <input {...register('origen_fondos')} className={inputClassName} />
+            {catalogs?.destinos_fondos?.length ? (
+              <select
+                {...register('origen_fondos')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.destinos_fondos.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('origen_fondos')} className={inputClassName} />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Medio de pago oferente
             </label>
-            <input {...register('medio_pago_oferente')} className={inputClassName} />
+            {catalogs?.medios_pago?.length ? (
+              <select
+                {...register('medio_pago_oferente')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.medios_pago.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('medio_pago_oferente')} className={inputClassName} />
+            )}
           </div>
         </div>
       </div>
@@ -242,10 +332,25 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Actividad económica demandante
             </label>
-            <input
-              {...register('actividad_economica_cliente_demandante')}
-              className={inputClassName}
-            />
+            {catalogs?.actividades_economicas?.length ? (
+              <select
+                {...register('actividad_economica_cliente_demandante')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.actividades_economicas.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                {...register('actividad_economica_cliente_demandante')}
+                className={inputClassName}
+              />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -306,13 +411,43 @@ export function CorreccionForm({ operacion }: CorreccionFormProps) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Destino de fondos</label>
-            <input {...register('destino_fondos')} className={inputClassName} />
+            {catalogs?.destinos_fondos?.length ? (
+              <select
+                {...register('destino_fondos')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.destinos_fondos.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('destino_fondos')} className={inputClassName} />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Medio de pago demandante
             </label>
-            <input {...register('medio_pago_demandante')} className={inputClassName} />
+            {catalogs?.medios_pago?.length ? (
+              <select
+                {...register('medio_pago_demandante')}
+                className={inputClassName}
+                disabled={isLoadingCatalogs}
+              >
+                <option value="">— sin cambio —</option>
+                {catalogs.medios_pago.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('medio_pago_demandante')} className={inputClassName} />
+            )}
           </div>
         </div>
       </div>

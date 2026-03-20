@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -8,6 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { createOperacion } from '../actions';
 import { OperacionMesaDeCambioInput } from '../types';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
+import type { IntervencionApi01Catalogs } from '@/features/intervencion/types';
 
 const account20Digits = z
   .string()
@@ -16,7 +18,7 @@ const account20Digits = z
 const operacionSchema = z.object({
   identificacion_ente_supervisado: z.string().min(1, 'Requerido').max(99),
   tipo_pacto: z.string().min(1, 'Requerido').max(99),
-  moneda: z.string().min(1, 'Requerido').max(99),
+  moneda: z.coerce.number().int().positive(),
   fecha_pacto: z.string().min(1, 'Requerido'),
   monto_divisa: z.coerce.number().positive('Debe ser mayor a 0'),
   tipo_cambio_bs: z.coerce.number().positive('Debe ser mayor a 0'),
@@ -39,8 +41,8 @@ const operacionSchema = z.object({
   tipo_cuenta_moneda_extranjera_cliente_oferente: z.coerce
     .number()
     .refine((v) => [31, 32].includes(v), { message: 'Debe ser 31 o 32' }),
-  origen_fondos: z.string().min(1, 'Requerido').max(99),
-  medio_pago_oferente: z.string().min(1, 'Requerido').max(99),
+  origen_fondos: z.coerce.number().int().min(1),
+  medio_pago_oferente: z.coerce.number().int().min(0),
   // Demandante
   identificacion_cliente_demandante: z
     .string()
@@ -56,8 +58,8 @@ const operacionSchema = z.object({
   tipo_cuenta_moneda_extranjera_cliente_demandante: z.coerce
     .number()
     .refine((v) => [31, 32].includes(v), { message: 'Debe ser 31 o 32' }),
-  destino_fondos: z.string().min(1, 'Requerido').max(99),
-  medio_pago_demandante: z.string().min(1, 'Requerido').max(99),
+  destino_fondos: z.coerce.number().int().min(1),
+  medio_pago_demandante: z.coerce.number().int().min(0),
 });
 
 type OperacionFormData = z.infer<typeof operacionSchema>;
@@ -82,12 +84,14 @@ export function OperacionForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [catalogs, setCatalogs] = useState<IntervencionApi01Catalogs | null>(null);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
 
   const defaultValues = useMemo<OperacionFormData>(
     () => ({
       identificacion_ente_supervisado: '0108',
       tipo_pacto: '',
-      moneda: 'USD',
+      moneda: 840,
       fecha_pacto: getLocalDateTime(),
       monto_divisa: 0,
       tipo_cambio_bs: 0,
@@ -99,8 +103,8 @@ export function OperacionForm() {
       tipo_cuenta_moneda_nacional_cliente_oferente: 8,
       codigo_cuenta_moneda_extranjera_oferente: '',
       tipo_cuenta_moneda_extranjera_cliente_oferente: 31,
-      origen_fondos: '',
-      medio_pago_oferente: '',
+      origen_fondos: 1,
+      medio_pago_oferente: 0,
       identificacion_cliente_demandante: 'J',
       nombre_cliente_demandante: '',
       actividad_economica_cliente_demandante: '',
@@ -108,8 +112,8 @@ export function OperacionForm() {
       tipo_cuenta_moneda_nacional_cliente_demandante: 8,
       codigo_cuenta_moneda_extranjera_demandante: '',
       tipo_cuenta_moneda_extranjera_cliente_demandante: 31,
-      destino_fondos: '',
-      medio_pago_demandante: '',
+      destino_fondos: 1,
+      medio_pago_demandante: 0,
     }),
     []
   );
@@ -131,6 +135,24 @@ export function OperacionForm() {
     typeof montoDivisa === 'number' && typeof tipoCambio === 'number'
       ? montoDivisa * tipoCambio
       : 0;
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCatalogs = async () => {
+      setIsLoadingCatalogs(true);
+      const result = await fetchIntervencionApi01Catalogs();
+      if (!active) return;
+      setCatalogs(result);
+      setIsLoadingCatalogs(false);
+    };
+
+    loadCatalogs();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const onSubmit = (data: OperacionFormData) => {
     setError(null);
@@ -200,7 +222,21 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Identificación ente supervisado
               </label>
-              <input {...register('identificacion_ente_supervisado')} className={inputClassName} />
+              {catalogs?.entes_supervisados?.length ? (
+                <select
+                  {...register('identificacion_ente_supervisado')}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.entes_supervisados.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input {...register('identificacion_ente_supervisado')} className={inputClassName} />
+              )}
               <FieldError message={errors.identificacion_ente_supervisado?.message} />
             </div>
             <div>
@@ -210,7 +246,21 @@ export function OperacionForm() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Moneda</label>
-              <input {...register('moneda')} className={inputClassName} />
+              {catalogs?.monedas?.length ? (
+                <select
+                  {...register('moneda', { valueAsNumber: true })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.monedas.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}{item.description ? ` (${item.description})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" {...register('moneda', { valueAsNumber: true })} className={inputClassName} />
+              )}
               <FieldError message={errors.moneda?.message} />
             </div>
             <div>
@@ -280,10 +330,25 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Actividad económica oferente
               </label>
-              <input
-                {...register('actividad_economica_cliente_oferente')}
-                className={inputClassName}
-              />
+              {catalogs?.actividades_economicas?.length ? (
+                <select
+                  {...register('actividad_economica_cliente_oferente')}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  <option value="">Seleccione...</option>
+                  {catalogs.actividades_economicas.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  {...register('actividad_economica_cliente_oferente')}
+                  className={inputClassName}
+                />
+              )}
               <FieldError message={errors.actividad_economica_cliente_oferente?.message} />
             </div>
             <div>
@@ -300,14 +365,34 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Tipo cuenta nacional oferente
               </label>
-              <select
-                {...register('tipo_cuenta_moneda_nacional_cliente_oferente')}
-                className={inputClassName}
-              >
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-              </select>
+              {catalogs?.instrumentos_captacion?.length ? (
+                <select
+                  {...register('tipo_cuenta_moneda_nacional_cliente_oferente', {
+                    valueAsNumber: true,
+                  })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.instrumentos_captacion
+                    .filter((item) => ['8', '9', '10'].includes(item.code))
+                    .map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.code} - {item.name}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <select
+                  {...register('tipo_cuenta_moneda_nacional_cliente_oferente', {
+                    valueAsNumber: true,
+                  })}
+                  className={inputClassName}
+                >
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
@@ -323,24 +408,72 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Tipo cuenta extranjera oferente
               </label>
-              <select
-                {...register('tipo_cuenta_moneda_extranjera_cliente_oferente')}
-                className={inputClassName}
-              >
-                <option value="31">31</option>
-                <option value="32">32</option>
-              </select>
+              {catalogs?.instrumentos_captacion?.length ? (
+                <select
+                  {...register('tipo_cuenta_moneda_extranjera_cliente_oferente', {
+                    valueAsNumber: true,
+                  })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.instrumentos_captacion
+                    .filter((item) => ['31', '32'].includes(item.code))
+                    .map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.code} - {item.name}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <select
+                  {...register('tipo_cuenta_moneda_extranjera_cliente_oferente', {
+                    valueAsNumber: true,
+                  })}
+                  className={inputClassName}
+                >
+                  <option value="31">31</option>
+                  <option value="32">32</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Origen de fondos</label>
-              <input {...register('origen_fondos')} className={inputClassName} />
+              {catalogs?.destinos_fondos?.length ? (
+                <select
+                  {...register('origen_fondos', { valueAsNumber: true })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.destinos_fondos.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" {...register('origen_fondos', { valueAsNumber: true })} className={inputClassName} />
+              )}
               <FieldError message={errors.origen_fondos?.message} />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
                 Medio de pago oferente
               </label>
-              <input {...register('medio_pago_oferente')} className={inputClassName} />
+              {catalogs?.medios_pago?.length ? (
+                <select
+                  {...register('medio_pago_oferente', { valueAsNumber: true })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.medios_pago.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" {...register('medio_pago_oferente', { valueAsNumber: true })} className={inputClassName} />
+              )}
               <FieldError message={errors.medio_pago_oferente?.message} />
             </div>
           </div>
@@ -373,10 +506,25 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Actividad económica demandante
               </label>
-              <input
-                {...register('actividad_economica_cliente_demandante')}
-                className={inputClassName}
-              />
+              {catalogs?.actividades_economicas?.length ? (
+                <select
+                  {...register('actividad_economica_cliente_demandante')}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  <option value="">Seleccione...</option>
+                  {catalogs.actividades_economicas.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  {...register('actividad_economica_cliente_demandante')}
+                  className={inputClassName}
+                />
+              )}
               <FieldError message={errors.actividad_economica_cliente_demandante?.message} />
             </div>
             <div>
@@ -394,7 +542,9 @@ export function OperacionForm() {
                 Tipo cuenta nacional demandante
               </label>
               <select
-                {...register('tipo_cuenta_moneda_nacional_cliente_demandante')}
+                {...register('tipo_cuenta_moneda_nacional_cliente_demandante', {
+                  valueAsNumber: true,
+                })}
                 className={inputClassName}
               >
                 <option value="8">8</option>
@@ -417,7 +567,9 @@ export function OperacionForm() {
                 Tipo cuenta extranjera demandante
               </label>
               <select
-                {...register('tipo_cuenta_moneda_extranjera_cliente_demandante')}
+                {...register('tipo_cuenta_moneda_extranjera_cliente_demandante', {
+                  valueAsNumber: true,
+                })}
                 className={inputClassName}
               >
                 <option value="31">31</option>
@@ -428,14 +580,42 @@ export function OperacionForm() {
               <label className="block text-sm font-medium text-slate-700">
                 Destino de fondos
               </label>
-              <input {...register('destino_fondos')} className={inputClassName} />
+              {catalogs?.destinos_fondos?.length ? (
+                <select
+                  {...register('destino_fondos', { valueAsNumber: true })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.destinos_fondos.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" {...register('destino_fondos', { valueAsNumber: true })} className={inputClassName} />
+              )}
               <FieldError message={errors.destino_fondos?.message} />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
                 Medio de pago demandante
               </label>
-              <input {...register('medio_pago_demandante')} className={inputClassName} />
+              {catalogs?.medios_pago?.length ? (
+                <select
+                  {...register('medio_pago_demandante', { valueAsNumber: true })}
+                  className={inputClassName}
+                  disabled={isLoadingCatalogs}
+                >
+                  {catalogs.medios_pago.map((item) => (
+                    <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                      {item.code} - {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" {...register('medio_pago_demandante', { valueAsNumber: true })} className={inputClassName} />
+              )}
               <FieldError message={errors.medio_pago_demandante?.message} />
             </div>
           </div>
