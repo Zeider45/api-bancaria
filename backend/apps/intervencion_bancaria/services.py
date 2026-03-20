@@ -1,16 +1,25 @@
 import logging
+import json
 from decimal import Decimal
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from collections import defaultdict
 
 from django.db import transaction as db_transaction
 from django.conf import settings
+from django.utils import timezone
 
 from .models import IntervencionTransaccion
 from .serializers import IntervencionTransaccionInput, IntervencionCorreccionInput
 from .sudeban_schemas import SudebanRequestSchema, SudebanTransaccionSchema
 from apps.core.vpn_client import SudebanAPIClient
-from apps.core.utils import format_date_for_sudeban, format_amount
+from apps.core.utils import (
+    format_date_for_sudeban,
+    format_amount,
+    decode_sudeban_error,
+    extract_sudeban_error_code,
+)
+from apps.core.models import TransactionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -135,23 +144,42 @@ def prepare_for_sudeban(transaccion: IntervencionTransaccion) -> SudebanTransacc
     )
 
 
-def send_to_sudeban(transacciones: List[IntervencionTransaccion], webhook_url: str = None) -> Dict[str, Any]:
+def send_to_sudeban(
+    transacciones: List[IntervencionTransaccion],
+    webhook_url: str = None,
+    id_entidad_bancaria: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Send batch of transactions to SUDEBAN (API-01).
+
+    If `transacciones` is empty, the function will still transmit a payload with
+    `transacciones=[]` ("sin transacciones") as long as `id_entidad_bancaria`
+    is provided.
     """
-    Send batch of transactions to SUDEBAN
-    """
-    if not transacciones:
-        return {'success': True, 'message': 'No transactions to send'}
+
+    base_url = getattr(settings, 'SUDEBAN_API_URL', None)
+    if not base_url:
+        return {
+            'success': False,
+            'error': 'missing_config',
+            'detail': 'SUDEBAN_API_URL is not configured',
+        }
     
     # Get client configuration
     client = SudebanAPIClient(
-        base_url=settings.SUDEBAN_API_URL,
+        base_url=base_url,
         username=settings.SUDEBAN_USERNAME,
         password=settings.SUDEBAN_PASSWORD,
         verify_ssl=not settings.DEBUG  # Only skip SSL in dev
     )
     
     # Prepare batch
-    ente_code = transacciones[0].codigo_ente_supervisado
+    ente_code = id_entidad_bancaria or (transacciones[0].codigo_ente_supervisado if transacciones else None)
+    if not ente_code:
+        return {
+            'success': False,
+            'error': 'missing_ente_code',
+            'detail': 'idEntidadBancaria is required when sending without transacciones',
+        }
     batch = SudebanRequestSchema(
         idEntidadBancaria=ente_code,
         transacciones=[prepare_for_sudeban(t) for t in transacciones],
@@ -169,7 +197,10 @@ def send_to_sudeban(transacciones: List[IntervencionTransaccion], webhook_url: s
         with db_transaction.atomic():
             for t in transacciones:
                 t.status = 'sent'
-                t.last_sent_at = datetime.now()
+                t.last_sent_at = timezone.now()
+                t.error_code = None
+                t.error_detail = None
+                t.response_data = result.get('data')
                 t.save()
         
         return {
@@ -179,10 +210,24 @@ def send_to_sudeban(transacciones: List[IntervencionTransaccion], webhook_url: s
         }
     else:
         # Handle error - mark as failed but track error
+        detail = result.get('detail')
+        extracted_code = extract_sudeban_error_code(detail)
+        decoded_messages = decode_sudeban_error(extracted_code) if extracted_code else None
+        if isinstance(detail, str):
+            detail_text = detail
+        else:
+            try:
+                detail_text = json.dumps(detail, ensure_ascii=False)
+            except Exception:
+                detail_text = str(detail)
+
         with db_transaction.atomic():
             for t in transacciones:
                 t.status = 'failed'
                 t.retry_count += 1
+                t.error_code = extracted_code
+                t.error_detail = '; '.join(decoded_messages) if decoded_messages else detail_text
+                t.response_data = detail
                 t.save()
         
         return {
@@ -220,3 +265,86 @@ def correct_transaccion(transaccion_id: int, data: IntervencionCorreccionInput) 
         
         logger.info(f"Corrected transaction {transaccion_id}")
         return transaccion
+
+
+def send_pending_transacciones(webhook_url: Optional[str] = None) -> Dict[str, Any]:
+    """Send ALL pending intervencion transacciones to SUDEBAN synchronously."""
+
+    pendientes = list(
+        IntervencionTransaccion.objects.filter(status=TransactionStatus.PENDING).order_by('created_at')
+    )
+    total_pending = len(pendientes)
+
+    if total_pending == 0:
+        ente_code = getattr(settings, 'SUDEBAN_ID_ENTIDAD_BANCARIA', None)
+        if not ente_code:
+            last = IntervencionTransaccion.objects.order_by('-created_at').first()
+            ente_code = last.codigo_ente_supervisado if last else None
+
+        if not ente_code:
+            return {
+                'success': False,
+                'total_pending': 0,
+                'sent': 0,
+                'rejected': 0,
+                'failed': 0,
+                'error': 'missing_ente_code',
+                'detail': 'Configure SUDEBAN_ID_ENTIDAD_BANCARIA to send an empty transacciones payload',
+                'groups': {},
+            }
+
+        result = send_to_sudeban([], webhook_url=webhook_url, id_entidad_bancaria=ente_code)
+        return {
+            'success': bool(result.get('success')),
+            'total_pending': 0,
+            'sent': 0,
+            'rejected': 0,
+            'failed': 0,
+            'groups': {
+                ente_code: {
+                    'success': bool(result.get('success')),
+                    'count': 0,
+                    'detail': result.get('detail'),
+                    'response': result.get('response') or result.get('data'),
+                }
+            },
+        }
+
+    valid_by_ente: Dict[str, List[IntervencionTransaccion]] = defaultdict(list)
+    rejected_ids: List[int] = []
+
+    for transaccion in pendientes:
+        is_valid, errors = validate_transaction_for_sudeban(transaccion)
+        if not is_valid:
+            transaccion.status = TransactionStatus.REJECTED
+            transaccion.error_detail = '; '.join(errors)
+            transaccion.save(update_fields=['status', 'error_detail', 'updated_at'])
+            rejected_ids.append(transaccion.id)
+            continue
+        valid_by_ente[transaccion.codigo_ente_supervisado].append(transaccion)
+
+    sent_count = 0
+    failed_count = 0
+    groups: Dict[str, Any] = {}
+
+    for ente, items in valid_by_ente.items():
+        result = send_to_sudeban(items, webhook_url=webhook_url)
+        groups[ente] = {
+            'success': bool(result.get('success')),
+            'count': len(items),
+            'detail': result.get('detail'),
+            'response': result.get('response') or result.get('data'),
+        }
+        if result.get('success'):
+            sent_count += len(items)
+        else:
+            failed_count += len(items)
+
+    return {
+        'success': failed_count == 0,
+        'total_pending': total_pending,
+        'sent': sent_count,
+        'rejected': len(rejected_ids),
+        'failed': failed_count,
+        'groups': groups,
+    }

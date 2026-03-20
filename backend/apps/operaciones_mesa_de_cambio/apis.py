@@ -1,4 +1,5 @@
 from datetime import datetime
+from django.conf import settings
 from ninja import NinjaAPI
 from typing import List
 
@@ -88,3 +89,15 @@ def correct_operacion(request, operacion_id: int, payload: OperacionMesaDeCambio
 def get_stats(request):
     """Get mesa de cambio statistics."""
     return selectors.get_stats()
+
+
+@api.post("/operaciones/send-pending", response={200: dict, 400: dict})
+def send_pending_operaciones(request):
+    """Manual send: transmit all pending mesa de cambio operaciones to SUDEBAN."""
+    try:
+        result = services.send_pending_operaciones(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")

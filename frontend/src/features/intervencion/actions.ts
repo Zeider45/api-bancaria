@@ -72,3 +72,15 @@ export async function getStats(): Promise<any> {
     return {};
   }
 }
+
+export async function sendPendingTransacciones(): Promise<{ success: boolean; error?: string; [key: string]: any }> {
+  try {
+    const response = await api.post('/intervencion/transacciones/send-pending');
+    return response.data;
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al enviar transacciones pendientes'),
+    };
+  }
+}

@@ -3,38 +3,39 @@ from typing import List, Optional
 
 
 class SudebanMesaDeCambioTransaccionSchema(Schema):
-    """
-    Exact schema for SUDEBAN Mesa de Cambio transactions as per operational manual.
-    Field names follow camelCase convention required by SUDEBAN.
-    """
-    tipoPacto: str
-    moneda: str
-    fechaPacto: str                      # Format: AAAA-MM-DDTHH:MM:SS.sss
-    montoDivisa: str                     # With 4 decimal places
-    tipoCambioBs: str                    # With 4 decimal places
-    contraValorBs: str                   # With 4 decimal places
+    """Exact schema for SUDEBAN API-04 (Mesa de Cambio) as per manual.
 
-    # Oferente
-    identificacionClienteOferente: str
-    nombreClienteOferente: str
-    actEconomicaClienteOferente: str
-    codCtaMnOferente: str                # 20-digit national currency account
-    tipCtaMnClienteOferente: int         # 8, 9 or 10
-    codCtaMeOferente: str                # 20-digit foreign currency account
-    tipCtaMeClienteOferente: int         # 31 or 32
-    origenFondos: str
-    medioPagoOferente: str
+    Field names are intentionally kept exactly as required by SUDEBAN.
+    """
 
-    # Demandante
-    identificacionClienteDemandante: str
-    nombreClienteDemandante: str
-    actEconomicaClienteDemandante: str
-    codCtaMnDemandante: str              # 20-digit national currency account
-    tipCtaMnClienteDemandante: int       # 8, 9 or 10
-    codCtaMeDemandante: str              # 20-digit foreign currency account
-    tipCtaMeClienteDemandante: int       # 31 or 32
-    destinoFondos: str
-    medioPagoDemandante: str
+    idTipoPacto: str
+    idMoneda: int
+    fechaPacto: str  # Format: AAAA-MM-DDTHH:MM:SS.sss
+    montoDivisa: str  # With 4 decimals
+    tasaCambioBs: str  # With 4 decimals
+    contravalorBs: str  # With 4 decimals
+
+    # Origen (Cliente oferente)
+    rifCiOrigen: str
+    nombreClienteOrigen: str
+    idActEconomicaOrigen: str
+    nroCtaBancariaOrigen: str
+    idTipoCtaBancariaOrigen: int
+    nroCtaBancariaExtOrigen: str
+    idTipoCtaBancariaExtOrigen: int
+    idOrigenFondos: int
+    idMedioPagoOrigen: int
+
+    # Destino (Cliente demandante)
+    rifCiDestino: str
+    nombreClienteDestino: str
+    idActEconomicaDestino: str
+    nroCtaBancariaDestino: str
+    idTipoCtaBancariaDestino: int
+    nroCtaBancariaExtDestino: str
+    idTipoCtaBancariaExtDestino: int
+    idDestinoFondos: int
+    idMedioPagoDestino: int
 
 
 class SudebanMesaDeCambioRequestSchema(Schema):

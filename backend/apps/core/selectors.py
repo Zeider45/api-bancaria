@@ -73,5 +73,21 @@ def is_valid_mecanismo_cambiario(code: str) -> bool:
 def is_valid_actividad_economica(code: str) -> bool:
     return ActividadEconomicaCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
 
+
+def is_valid_moneda(code: str | int) -> bool:
+    return MonedaCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
+
+
+def is_valid_instrumento_captacion(code: str | int) -> bool:
+    return InstrumentoCaptacionCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
+
+
+def is_valid_destino_fondos(code: str | int) -> bool:
+    return DestinoFondosCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
+
+
+def is_valid_medio_pago(code: str | int) -> bool:
+    return MedioPagoCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
+
 def get_moneda(code: str) -> MonedaCatalog | None:
     return MonedaCatalog.objects.filter(code=str(code).strip(), is_active=True).first()

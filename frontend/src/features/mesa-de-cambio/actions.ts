@@ -1,6 +1,6 @@
 'use server';
 
-import { api } from '@/core/api';
+import { api, getApiErrorMessage } from '@/core/api';
 import {
   OperacionMesaDeCambio,
   OperacionMesaDeCambioInput,
@@ -90,6 +90,18 @@ export async function getStats(): Promise<OperacionMesaDeCambioStats> {
       today: 0,
       week: 0,
       total_amount: 0,
+    };
+  }
+}
+
+export async function sendPendingOperaciones(): Promise<{ success: boolean; error?: string; [key: string]: any }> {
+  try {
+    const response = await api.post('/mesa-de-cambio/operaciones/send-pending');
+    return response.data;
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al enviar operaciones pendientes'),
     };
   }
 }

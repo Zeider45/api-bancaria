@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { getTransacciones } from '@/features/intervencion/actions';
 import { TransaccionTable } from '@/features/intervencion/components/TransaccionTable';
 import { TransaccionForm } from '@/features/intervencion/components/TransaccionForm';
+import { SendPendingTransaccionesButton } from '@/features/intervencion/components/SendPendingTransaccionesButton';
 
 export default async function IntervencionPage() {
   const transacciones = await getTransacciones();
@@ -17,6 +18,7 @@ export default async function IntervencionPage() {
             Gestión de operaciones de intervención cambiaria
           </p>
         </div>
+        <SendPendingTransaccionesButton />
       </div>
 
       <TransaccionForm />

@@ -110,3 +110,10 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# SUDEBAN configuration (shared)
+SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeban.gob.ve/transmission')
+SUDEBAN_USERNAME = os.environ.get('SUDEBAN_USERNAME')
+SUDEBAN_PASSWORD = os.environ.get('SUDEBAN_PASSWORD')
+SUDEBAN_WEBHOOK_URL = os.environ.get('SUDEBAN_WEBHOOK_URL')
+SUDEBAN_ID_ENTIDAD_BANCARIA = os.environ.get('SUDEBAN_ID_ENTIDAD_BANCARIA')

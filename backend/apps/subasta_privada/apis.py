@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from django.http import JsonResponse
+from django.conf import settings
 from ninja import NinjaAPI
 from typing import List
 
@@ -135,3 +136,15 @@ def sudeban_callback(request):
         return {"success": True}
     except Exception as e:
         return 400, {"error": str(e)}
+
+
+@api.post("/solicitudes/send-pending", response={200: dict, 400: dict})
+def send_pending_solicitudes(request):
+    """Manual send: transmit all pending subasta solicitudes to SUDEBAN."""
+    try:
+        result = services.send_pending_solicitudes(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")

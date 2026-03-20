@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { getOperaciones, getStats } from '@/features/mesa-de-cambio/actions';
 import { OperacionTable } from '@/features/mesa-de-cambio/components/OperacionTable';
 import { OperacionForm } from '@/features/mesa-de-cambio/components/OperacionForm';
+import { SendPendingOperacionesButton } from '@/features/mesa-de-cambio/components/SendPendingOperacionesButton';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -18,12 +19,15 @@ export default async function MesaDeCambioPage() {
             Operaciones de compraventa de divisas en mesa de cambio
           </p>
         </div>
-        <Link
-          href="/dashboard/mesa-de-cambio/correcciones"
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          Ver Correcciones
-        </Link>
+        <div className="flex items-center gap-3">
+          <SendPendingOperacionesButton />
+          <Link
+            href="/dashboard/mesa-de-cambio/correcciones"
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            Ver Correcciones
+          </Link>
+        </div>
       </div>
 
       <OperacionForm />

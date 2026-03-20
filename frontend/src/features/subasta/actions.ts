@@ -104,3 +104,15 @@ export async function getSummary(fechaInicio?: string, fechaFin?: string): Promi
     return [];
   }
 }
+
+export async function sendPendingSolicitudes(): Promise<{ success: boolean; error?: string; [key: string]: any }> {
+  try {
+    const response = await api.post('/subasta/solicitudes/send-pending');
+    return response.data;
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al enviar solicitudes pendientes'),
+    };
+  }
+}

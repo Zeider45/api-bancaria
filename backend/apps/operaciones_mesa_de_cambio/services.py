@@ -1,7 +1,9 @@
 import logging
+import json
 from decimal import Decimal
 from typing import Dict, Any, List, Tuple
 from datetime import datetime
+from collections import defaultdict
 
 from django.db import transaction as db_transaction
 from django.conf import settings
@@ -11,7 +13,14 @@ from .models import OperacionMesaDeCambio
 from .serializers import OperacionMesaDeCambioInput, OperacionMesaDeCambioCorreccionInput
 from .sudeban_schemas import SudebanMesaDeCambioRequestSchema, SudebanMesaDeCambioTransaccionSchema
 from apps.core.vpn_client import SudebanAPIClient
-from apps.core.utils import format_date_for_sudeban, format_amount
+from apps.core.utils import (
+    format_date_for_sudeban,
+    format_amount,
+    decode_sudeban_error,
+    extract_sudeban_error_code,
+)
+from apps.core.models import TransactionStatus
+from apps.core import selectors as core_selectors
 
 logger = logging.getLogger(__name__)
 
@@ -100,18 +109,18 @@ def validate_operacion_for_sudeban(operacion: OperacionMesaDeCambio) -> Tuple[bo
             len(operacion.codigo_cuenta_moneda_nacional_demandante) != 20:
         errors.append("Código Cuenta Moneda Nacional Demandante debe ser un número de 20 dígitos")
 
-    # Rule 9: Tipo cuenta nacional demandante must be 8, 9 or 10
-    if operacion.tipo_cuenta_moneda_nacional_cliente_demandante not in (8, 9, 10):
-        errors.append("Tipo Cuenta Moneda Nacional Cliente Demandante debe ser 8, 9 o 10")
+    # Rule 9: Tipo cuenta nacional demandante (Destino) must be a positive code
+    if operacion.tipo_cuenta_moneda_nacional_cliente_demandante is None or operacion.tipo_cuenta_moneda_nacional_cliente_demandante <= 0:
+        errors.append("Tipo Cuenta Moneda Nacional Cliente Demandante debe ser un entero mayor que 0")
 
     # Rule 10: Cuenta extranjera demandante must be 20 digits
     if not operacion.codigo_cuenta_moneda_extranjera_demandante.isdigit() or \
             len(operacion.codigo_cuenta_moneda_extranjera_demandante) != 20:
         errors.append("Código Cuenta Moneda Extranjera Demandante debe ser un número de 20 dígitos")
 
-    # Rule 11: Tipo cuenta extranjera demandante must be 31 or 32
-    if operacion.tipo_cuenta_moneda_extranjera_cliente_demandante not in (31, 32):
-        errors.append("Tipo Cuenta Moneda Extranjera Cliente Demandante debe ser 31 o 32")
+    # Rule 11: Tipo cuenta extranjera demandante (Destino) must be a positive code
+    if operacion.tipo_cuenta_moneda_extranjera_cliente_demandante is None or operacion.tipo_cuenta_moneda_extranjera_cliente_demandante <= 0:
+        errors.append("Tipo Cuenta Moneda Extranjera Cliente Demandante debe ser un entero mayor que 0")
 
     # Rule 12: Nombres no vacíos
     if not operacion.nombre_cliente_oferente.strip():
@@ -119,6 +128,30 @@ def validate_operacion_for_sudeban(operacion: OperacionMesaDeCambio) -> Tuple[bo
 
     if not operacion.nombre_cliente_demandante.strip():
         errors.append("Nombre Cliente Demandante no puede estar vacío")
+
+    # Rule 13: Ente Supervisado must exist in catalog
+    if not core_selectors.is_valid_ente_supervisado(operacion.identificacion_ente_supervisado):
+        errors.append("Identificación Ente Supervisado inválida (no existe en el catálogo)")
+
+    # Rule 14: Moneda must exist in catalog (uses numeric ISO code in catalog)
+    if not core_selectors.is_valid_moneda(operacion.moneda):
+        errors.append("Moneda inválida (no existe en el catálogo)")
+
+    # Rule 15: Actividad económica must exist in catalog
+    if not core_selectors.is_valid_actividad_economica(operacion.actividad_economica_cliente_oferente):
+        errors.append("Actividad Económica Cliente Oferente inválida (no existe en el catálogo)")
+    if not core_selectors.is_valid_actividad_economica(operacion.actividad_economica_cliente_demandante):
+        errors.append("Actividad Económica Cliente Demandante inválida (no existe en el catálogo)")
+
+    # Rule 16: Origen/Destino fondos and medios de pago must exist in catalogs
+    if not core_selectors.is_valid_destino_fondos(operacion.origen_fondos):
+        errors.append("Origen Fondos inválido (no existe en el catálogo)")
+    if not core_selectors.is_valid_destino_fondos(operacion.destino_fondos):
+        errors.append("Destino Fondos inválido (no existe en el catálogo)")
+    if not core_selectors.is_valid_medio_pago(operacion.medio_pago_oferente):
+        errors.append("Medio Pago Oferente inválido (no existe en el catálogo)")
+    if not core_selectors.is_valid_medio_pago(operacion.medio_pago_demandante):
+        errors.append("Medio Pago Demandante inválido (no existe en el catálogo)")
 
     return len(errors) == 0, errors
 
@@ -128,51 +161,65 @@ def prepare_for_sudeban(operacion: OperacionMesaDeCambio) -> SudebanMesaDeCambio
     Prepare a mesa de cambio transaction in the exact SUDEBAN format.
     """
     return SudebanMesaDeCambioTransaccionSchema(
-        tipoPacto=operacion.tipo_pacto,
-        moneda=operacion.moneda,
+        idTipoPacto=operacion.tipo_pacto,
+        idMoneda=int(str(operacion.moneda).strip()),
         fechaPacto=format_date_for_sudeban(operacion.fecha_pacto),
         montoDivisa=format_amount(operacion.monto_divisa, 4),
-        tipoCambioBs=format_amount(operacion.tipo_cambio_bs, 4),
-        contraValorBs=format_amount(operacion.contravalor_bs, 4),
-        identificacionClienteOferente=operacion.identificacion_cliente_oferente,
-        nombreClienteOferente=operacion.nombre_cliente_oferente,
-        actEconomicaClienteOferente=operacion.actividad_economica_cliente_oferente,
-        codCtaMnOferente=operacion.codigo_cuenta_moneda_nacional_oferente,
-        tipCtaMnClienteOferente=operacion.tipo_cuenta_moneda_nacional_cliente_oferente,
-        codCtaMeOferente=operacion.codigo_cuenta_moneda_extranjera_oferente,
-        tipCtaMeClienteOferente=operacion.tipo_cuenta_moneda_extranjera_cliente_oferente,
-        origenFondos=operacion.origen_fondos,
-        medioPagoOferente=operacion.medio_pago_oferente,
-        identificacionClienteDemandante=operacion.identificacion_cliente_demandante,
-        nombreClienteDemandante=operacion.nombre_cliente_demandante,
-        actEconomicaClienteDemandante=operacion.actividad_economica_cliente_demandante,
-        codCtaMnDemandante=operacion.codigo_cuenta_moneda_nacional_demandante,
-        tipCtaMnClienteDemandante=operacion.tipo_cuenta_moneda_nacional_cliente_demandante,
-        codCtaMeDemandante=operacion.codigo_cuenta_moneda_extranjera_demandante,
-        tipCtaMeClienteDemandante=operacion.tipo_cuenta_moneda_extranjera_cliente_demandante,
-        destinoFondos=operacion.destino_fondos,
-        medioPagoDemandante=operacion.medio_pago_demandante,
+        tasaCambioBs=format_amount(operacion.tipo_cambio_bs, 4),
+        contravalorBs=format_amount(operacion.contravalor_bs, 4),
+
+        rifCiOrigen=operacion.identificacion_cliente_oferente,
+        nombreClienteOrigen=operacion.nombre_cliente_oferente,
+        idActEconomicaOrigen=operacion.actividad_economica_cliente_oferente,
+        nroCtaBancariaOrigen=operacion.codigo_cuenta_moneda_nacional_oferente,
+        idTipoCtaBancariaOrigen=operacion.tipo_cuenta_moneda_nacional_cliente_oferente,
+        nroCtaBancariaExtOrigen=operacion.codigo_cuenta_moneda_extranjera_oferente,
+        idTipoCtaBancariaExtOrigen=operacion.tipo_cuenta_moneda_extranjera_cliente_oferente,
+        idOrigenFondos=int(str(operacion.origen_fondos).strip()),
+        idMedioPagoOrigen=int(str(operacion.medio_pago_oferente).strip()),
+
+        rifCiDestino=operacion.identificacion_cliente_demandante,
+        nombreClienteDestino=operacion.nombre_cliente_demandante,
+        idActEconomicaDestino=operacion.actividad_economica_cliente_demandante,
+        nroCtaBancariaDestino=operacion.codigo_cuenta_moneda_nacional_demandante,
+        idTipoCtaBancariaDestino=operacion.tipo_cuenta_moneda_nacional_cliente_demandante,
+        nroCtaBancariaExtDestino=operacion.codigo_cuenta_moneda_extranjera_demandante,
+        idTipoCtaBancariaExtDestino=operacion.tipo_cuenta_moneda_extranjera_cliente_demandante,
+        idDestinoFondos=int(str(operacion.destino_fondos).strip()),
+        idMedioPagoDestino=int(str(operacion.medio_pago_demandante).strip()),
     )
 
 
 def send_to_sudeban(
     operaciones: List[OperacionMesaDeCambio],
     webhook_url: str = None,
+    id_entidad_bancaria: str = None,
 ) -> Dict[str, Any]:
     """
     Send a batch of mesa de cambio transactions to SUDEBAN.
     """
-    if not operaciones:
-        return {'success': True, 'message': 'No transactions to send'}
+    base_url = getattr(settings, 'SUDEBAN_API_URL', None)
+    if not base_url:
+        return {
+            'success': False,
+            'error': 'missing_config',
+            'detail': 'SUDEBAN_API_URL is not configured',
+        }
 
     client = SudebanAPIClient(
-        base_url=settings.SUDEBAN_API_URL,
+        base_url=base_url,
         username=settings.SUDEBAN_USERNAME,
         password=settings.SUDEBAN_PASSWORD,
         verify_ssl=not settings.DEBUG,
     )
 
-    ente_code = operaciones[0].identificacion_ente_supervisado
+    ente_code = id_entidad_bancaria or (operaciones[0].identificacion_ente_supervisado if operaciones else None)
+    if not ente_code:
+        return {
+            'success': False,
+            'error': 'missing_ente_code',
+            'detail': 'idEntidadBancaria is required when sending without transacciones',
+        }
     batch = SudebanMesaDeCambioRequestSchema(
         idEntidadBancaria=ente_code,
         transacciones=[prepare_for_sudeban(op) for op in operaciones],
@@ -189,6 +236,9 @@ def send_to_sudeban(
             for op in operaciones:
                 op.status = 'sent'
                 op.last_sent_at = timezone.now()
+                op.error_code = None
+                op.error_detail = None
+                op.response_data = result.get('data')
                 op.save()
 
         return {
@@ -197,10 +247,24 @@ def send_to_sudeban(
             'response': result.get('data'),
         }
     else:
+        detail = result.get('detail')
+        extracted_code = extract_sudeban_error_code(detail)
+        decoded_messages = decode_sudeban_error(extracted_code) if extracted_code else None
+        if isinstance(detail, str):
+            detail_text = detail
+        else:
+            try:
+                detail_text = json.dumps(detail, ensure_ascii=False)
+            except Exception:
+                detail_text = str(detail)
+
         with db_transaction.atomic():
             for op in operaciones:
                 op.status = 'failed'
                 op.retry_count += 1
+                op.error_code = extracted_code
+                op.error_detail = '; '.join(decoded_messages) if decoded_messages else detail_text
+                op.response_data = detail
                 op.save()
 
         return {
@@ -240,3 +304,87 @@ def correct_operacion(
 
         logger.info(f"Corrected mesa de cambio transaction id={operacion_id}")
         return operacion
+
+
+def send_pending_operaciones(webhook_url: str = None) -> Dict[str, Any]:
+    """Send ALL pending mesa de cambio operaciones to SUDEBAN synchronously."""
+
+    pendientes = list(
+        OperacionMesaDeCambio.objects.filter(status=TransactionStatus.PENDING).order_by('created_at')
+    )
+    total_pending = len(pendientes)
+
+    if total_pending == 0:
+        ente_code = getattr(settings, 'SUDEBAN_ID_ENTIDAD_BANCARIA', None)
+        if not ente_code:
+            last = OperacionMesaDeCambio.objects.order_by('-created_at').first()
+            ente_code = last.identificacion_ente_supervisado if last else None
+
+        if not ente_code:
+            return {
+                'success': False,
+                'total_pending': 0,
+                'sent': 0,
+                'rejected': 0,
+                'failed': 0,
+                'error': 'missing_ente_code',
+                'detail': 'Configure SUDEBAN_ID_ENTIDAD_BANCARIA to send an empty transacciones payload',
+                'groups': {},
+            }
+
+        result = send_to_sudeban([], webhook_url=webhook_url, id_entidad_bancaria=ente_code)
+        return {
+            'success': bool(result.get('success')),
+            'total_pending': 0,
+            'sent': 0,
+            'rejected': 0,
+            'failed': 0,
+            'groups': {
+                ente_code: {
+                    'success': bool(result.get('success')),
+                    'count': 0,
+                    'detail': result.get('detail'),
+                    'response': result.get('response') or result.get('data'),
+                }
+            },
+        }
+
+    valid_by_ente: Dict[str, List[OperacionMesaDeCambio]] = defaultdict(list)
+    rejected_ids: List[int] = []
+
+    for operacion in pendientes:
+        is_valid, errors = validate_operacion_for_sudeban(operacion)
+        if not is_valid:
+            operacion.status = TransactionStatus.REJECTED
+            operacion.error_detail = '; '.join(errors)
+            operacion.save(update_fields=['status', 'error_detail', 'updated_at'])
+            rejected_ids.append(operacion.id)
+            continue
+
+        valid_by_ente[operacion.identificacion_ente_supervisado].append(operacion)
+
+    sent_count = 0
+    failed_count = 0
+    groups: Dict[str, Any] = {}
+
+    for ente, items in valid_by_ente.items():
+        result = send_to_sudeban(items, webhook_url=webhook_url)
+        groups[ente] = {
+            'success': bool(result.get('success')),
+            'count': len(items),
+            'detail': result.get('detail'),
+            'response': result.get('response') or result.get('data'),
+        }
+        if result.get('success'):
+            sent_count += len(items)
+        else:
+            failed_count += len(items)
+
+    return {
+        'success': failed_count == 0,
+        'total_pending': total_pending,
+        'sent': sent_count,
+        'rejected': len(rejected_ids),
+        'failed': failed_count,
+        'groups': groups,
+    }
