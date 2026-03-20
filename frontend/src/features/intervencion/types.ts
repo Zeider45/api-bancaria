@@ -54,3 +54,20 @@ export interface IntervencionCorreccion {
   destino_fondos?: number;
   medio_pago?: number;
 }
+
+export interface IntervencionCatalogItem {
+  code: string;
+  name: string;
+  description: string;
+  is_selectable: boolean;
+}
+
+export interface IntervencionApi01Catalogs {
+  entes_supervisados: IntervencionCatalogItem[];
+  mecanismos_cambiarios: IntervencionCatalogItem[];
+  monedas: IntervencionCatalogItem[];
+  actividades_economicas: IntervencionCatalogItem[];
+  instrumentos_captacion: IntervencionCatalogItem[];
+  destinos_fondos: IntervencionCatalogItem[];
+  medios_pago: IntervencionCatalogItem[];
+}

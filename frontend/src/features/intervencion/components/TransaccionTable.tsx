@@ -1,9 +1,8 @@
 'use client';
 
 import { IntervencionTransaccion } from '../types';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import Link from 'next/link';
+import { formatAppDateTime, formatAppNumber } from '@/shared/utils/format';
 
 interface TransaccionTableProps {
   transacciones: IntervencionTransaccion[];
@@ -67,10 +66,10 @@ export function TransaccionTable({ transacciones }: TransaccionTableProps) {
                 {transaccion.identificacion_cliente}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                ${transaccion.monto_divisa.toLocaleString()}
+                ${formatAppNumber(transaccion.monto_divisa)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {format(new Date(transaccion.fecha_operacion_cliente), 'dd/MM/yyyy HH:mm', { locale: es })}
+                {formatAppDateTime(transaccion.fecha_operacion_cliente)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[transaccion.status]}`}>

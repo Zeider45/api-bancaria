@@ -25,8 +25,13 @@ INSTALLED_APPS = [
     # Local apps
     'apps.core',
     'apps.intervencion_bancaria',
+<<<<<<< HEAD
     'apps.subasta_privada',
     'apps.resultados_subasta',
+=======
+    'apps.subasta_privada',  # <-- NUEVO
+    'apps.operaciones_mesa_de_cambio',
+>>>>>>> 549c5be327dcc9b005c66dee4877d6bd0c04a82b
 ]
 
 MIDDLEWARE = [
@@ -110,3 +115,10 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# SUDEBAN configuration (shared)
+SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeban.gob.ve/transmission')
+SUDEBAN_USERNAME = os.environ.get('SUDEBAN_USERNAME')
+SUDEBAN_PASSWORD = os.environ.get('SUDEBAN_PASSWORD')
+SUDEBAN_WEBHOOK_URL = os.environ.get('SUDEBAN_WEBHOOK_URL')
+SUDEBAN_ID_ENTIDAD_BANCARIA = os.environ.get('SUDEBAN_ID_ENTIDAD_BANCARIA')

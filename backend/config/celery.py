@@ -11,22 +11,4 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 # Scheduled tasks
-app.conf.beat_schedule = {
-    # Intervención Cambiaria - cada hora (as per manual)
-    'process-intervencion-hourly': {
-        'task': 'apps.intervencion_bancaria.tasks.process_pending_transacciones',
-        'schedule': crontab(minute=0),  # Every hour at minute 0
-    },
-    
-    # Subasta Privada - cada minuto (tiempo real as per manual)
-    'process-subasta-realtime': {
-        'task': 'apps.subasta_privada.tasks.process_pending_solicitudes',
-        'schedule': crontab(minute='*'),  # Every minute
-    },
-    
-    # Retry failed - cada 30 minutos
-    'retry-failed-subasta': {
-        'task': 'apps.subasta_privada.tasks.retry_failed_solicitudes',
-        'schedule': crontab(minute='*/30'),
-    },
-}
+app.conf.beat_schedule = {}

@@ -1,6 +1,6 @@
 'use server';
 
-import { api } from '@/core/api';
+import { api, getApiErrorMessage } from '@/core/api';
 import { SubastaSolicitud, SubastaCorreccion, SubastaStats, SubastaSummary, SubastaCreateInput } from './types';
 
 export async function getSolicitudes(status?: string): Promise<SubastaSolicitud[]> {
@@ -51,10 +51,10 @@ export async function correctSolicitud(
   try {
     await api.post(`/subasta/solicitudes/${id}/correct/`, data);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: error.response?.data?.detail || error.response?.data?.error || 'Error al corregir solicitud',
+      error: getApiErrorMessage(error, 'Error al corregir solicitud'),
     };
   }
 }
@@ -65,13 +65,10 @@ export async function createSolicitud(
   try {
     await api.post('/subasta/solicitudes/create', data);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error:
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        'Error al crear la solicitud',
+      error: getApiErrorMessage(error, 'Error al crear la solicitud'),
     };
   }
 }
@@ -105,5 +102,17 @@ export async function getSummary(fechaInicio?: string, fechaFin?: string): Promi
   } catch (error) {
     console.error('Error fetching summary:', error);
     return [];
+  }
+}
+
+export async function sendPendingSolicitudes(): Promise<{ success: boolean; error?: string; [key: string]: any }> {
+  try {
+    const response = await api.post('/subasta/solicitudes/send-pending');
+    return response.data;
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al enviar solicitudes pendientes'),
+    };
   }
 }

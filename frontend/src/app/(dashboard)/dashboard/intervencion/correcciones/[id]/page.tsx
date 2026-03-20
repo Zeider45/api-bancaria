@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 
 import { getTransaccion } from '@/features/intervencion/actions';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
 import { CorreccionForm } from '@/features/intervencion/components/CorrecionForm';
 
 interface PageProps {
@@ -14,6 +15,7 @@ interface PageProps {
 export default async function IntervencionCorreccionPage({ params }: PageProps) {
   const { id } = await params;
   const transaccion = await getTransaccion(parseInt(id, 10));
+  const catalogs = await fetchIntervencionApi01Catalogs();
 
   if (!transaccion) {
     notFound();
@@ -49,7 +51,7 @@ export default async function IntervencionCorreccionPage({ params }: PageProps) 
       <div className="overflow-hidden rounded-lg bg-white shadow">
         <div className="px-4 py-5 sm:p-6">
           <Suspense fallback={<div>Cargando formulario...</div>}>
-            <CorreccionForm transaccion={transaccion} />
+            <CorreccionForm transaccion={transaccion} catalogs={catalogs || undefined} />
           </Suspense>
         </div>
       </div>

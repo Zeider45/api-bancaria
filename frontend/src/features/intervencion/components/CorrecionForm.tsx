@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { IntervencionTransaccion, IntervencionCorreccion } from '../types';
+import { IntervencionTransaccion, IntervencionCorreccion, IntervencionApi01Catalogs } from '../types';
 import { correctTransaccion } from '../actions';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -14,19 +14,20 @@ const correccionSchema = z.object({
   monto_divisa: z.number().positive().optional(),
   tipo_cambio_bs: z.number().positive().optional(),
   codigo_cuenta_moneda_nacional: z.string().length(20).optional(),
-  tipo_cuenta_moneda_nacional: z.enum(['8', '9', '10']).optional().transform(v => v ? parseInt(v) : undefined),
+  tipo_cuenta_moneda_nacional: z.string().optional().transform(v => v ? parseInt(v) : undefined),
   codigo_cuenta_moneda_extranjera: z.string().length(20).optional(),
-  tipo_cuenta_moneda_extranjera: z.enum(['31', '32']).optional().transform(v => v ? parseInt(v) : undefined),
-  destino_fondos: z.number().int().optional(),
-  medio_pago: z.number().int().optional(),
+  tipo_cuenta_moneda_extranjera: z.string().optional().transform(v => v ? parseInt(v) : undefined),
+  destino_fondos: z.coerce.number().optional(),
+  medio_pago: z.coerce.number().optional(),
 });
 
 interface CorreccionFormProps {
   transaccion: IntervencionTransaccion;
+  catalogs?: IntervencionApi01Catalogs;
   onSuccess?: () => void;
 }
 
-export function CorreccionForm({ transaccion, onSuccess }: CorreccionFormProps) {
+export function CorreccionForm({ transaccion, catalogs, onSuccess }: CorreccionFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -156,9 +157,18 @@ export function CorreccionForm({ transaccion, onSuccess }: CorreccionFormProps) 
             {...register('tipo_cuenta_moneda_nacional', { valueAsNumber: true })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
-            <option value="8">8 - Cuenta Corriente No Remunerada</option>
-            <option value="9">9 - Cuenta Corriente Remunerada</option>
-            <option value="10">10 - Depósito de Ahorro</option>
+            <option value="">No aplica</option>
+            {catalogs?.instrumentos_captacion
+              ? catalogs.instrumentos_captacion.filter(item => ['8', '9', '10'].includes(item.code)).map((item) => (
+                <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
+              ))
+              : (
+                <>
+                  <option value="8">8 - Cuenta Corriente No Remunerada</option>
+                  <option value="9">9 - Cuenta Corriente Remunerada</option>
+                  <option value="10">10 - Depósito de Ahorro</option>
+                </>
+              )}
           </select>
           {errors.tipo_cuenta_moneda_nacional && (
             <p className="mt-1 text-sm text-red-600">{errors.tipo_cuenta_moneda_nacional.message}</p>
@@ -187,8 +197,17 @@ export function CorreccionForm({ transaccion, onSuccess }: CorreccionFormProps) 
             {...register('tipo_cuenta_moneda_extranjera', { valueAsNumber: true })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
-            <option value="31">31 - Cuenta Corriente Sistema de Mercado Cambiario</option>
-            <option value="32">32 - Depósito de Ahorro Sistema de Mercado Cambiario</option>
+            <option value="">No aplica</option>
+            {catalogs?.instrumentos_captacion
+              ? catalogs.instrumentos_captacion.filter(item => ['31', '32'].includes(item.code)).map((item) => (
+                <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
+              ))
+              : (
+                <>
+                  <option value="31">31 - Cuenta Corriente Sistema de Mercado Cambiario</option>
+                  <option value="32">32 - Depósito de Ahorro Sistema de Mercado Cambiario</option>
+                </>
+              )}
           </select>
           {errors.tipo_cuenta_moneda_extranjera && (
             <p className="mt-1 text-sm text-red-600">{errors.tipo_cuenta_moneda_extranjera.message}</p>
@@ -199,11 +218,23 @@ export function CorreccionForm({ transaccion, onSuccess }: CorreccionFormProps) 
           <label className="block text-sm font-medium text-gray-700">
             Destino Fondos
           </label>
-          <input
-            {...register('destino_fondos', { valueAsNumber: true })}
-            type="number"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
+          {catalogs?.destinos_fondos ? (
+            <select
+              {...register('destino_fondos', { valueAsNumber: true })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">Seleccione...</option>
+              {catalogs.destinos_fondos.map((item) => (
+                <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              {...register('destino_fondos', { valueAsNumber: true })}
+              type="number"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          )}
           {errors.destino_fondos && (
             <p className="mt-1 text-sm text-red-600">{errors.destino_fondos.message}</p>
           )}
@@ -213,11 +244,23 @@ export function CorreccionForm({ transaccion, onSuccess }: CorreccionFormProps) 
           <label className="block text-sm font-medium text-gray-700">
             Medio de Pago
           </label>
-          <input
-            {...register('medio_pago', { valueAsNumber: true })}
-            type="number"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
+          {catalogs?.medios_pago ? (
+            <select
+              {...register('medio_pago', { valueAsNumber: true })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">Seleccione...</option>
+              {catalogs.medios_pago.map((item) => (
+                <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              {...register('medio_pago', { valueAsNumber: true })}
+              type="number"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          )}
           {errors.medio_pago && (
             <p className="mt-1 text-sm text-red-600">{errors.medio_pago.message}</p>
           )}

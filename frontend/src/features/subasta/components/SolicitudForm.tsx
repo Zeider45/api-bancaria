@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -8,6 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { createSolicitud } from '../actions';
 import { SubastaCreateInput } from '../types';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
+import { IntervencionApi01Catalogs } from '@/features/intervencion/types';
 
 const optionalNumber = z.preprocess(
   (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
@@ -51,13 +53,15 @@ export function SolicitudForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [catalogs, setCatalogs] = useState<IntervencionApi01Catalogs | null>(null);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
 
   const defaultValues = useMemo<SolicitudFormData>(
     () => ({
       codigo_ente_supervisado: '0108',
-      fecha_subasta: getLocalDateTime(),
-      codigo_identificacion_subasta: `SUB-${Date.now().toString().slice(-6)}`,
-      fecha_solicitud_cliente: getLocalDateTime(),
+      fecha_subasta: '',
+      codigo_identificacion_subasta: '',
+      fecha_solicitud_cliente: '',
       moneda: 840,
       identificacion_cliente: 'J123456789',
       nombre_cliente: '',
@@ -90,6 +94,32 @@ export function SolicitudForm() {
   const tipoCambio = watch('tipo_cambio_bs');
   const contravalorCalculado =
     typeof montoDivisa === 'number' && typeof tipoCambio === 'number' ? montoDivisa * tipoCambio : 0;
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCatalogs = async () => {
+      setIsLoadingCatalogs(true);
+      const result = await fetchIntervencionApi01Catalogs();
+      if (active) {
+        setCatalogs(result);
+        setIsLoadingCatalogs(false);
+      }
+    };
+
+    loadCatalogs();
+
+    reset({
+      ...defaultValues,
+      codigo_identificacion_subasta: `SUB-${Date.now().toString().slice(-6)}`,
+      fecha_subasta: getLocalDateTime(),
+      fecha_solicitud_cliente: getLocalDateTime(),
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [defaultValues, reset]);
 
   const onSubmit = (data: SolicitudFormData) => {
     setError(null);
@@ -144,7 +174,17 @@ export function SolicitudForm() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-slate-700">Código ente</label>
-            <input {...register('codigo_ente_supervisado')} className={inputClassName} />
+            {catalogs?.entes_supervisados?.length ? (
+              <select {...register('codigo_ente_supervisado')} className={inputClassName} disabled={isLoadingCatalogs}>
+                {catalogs.entes_supervisados.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input {...register('codigo_ente_supervisado')} className={inputClassName} />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Fecha subasta</label>
@@ -161,7 +201,17 @@ export function SolicitudForm() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Moneda</label>
-            <input type="number" {...register('moneda')} className={inputClassName} />
+            {catalogs?.monedas?.length ? (
+              <select {...register('moneda', { valueAsNumber: true })} className={inputClassName} disabled={isLoadingCatalogs}>
+                {catalogs.monedas.map((item) => (
+                  <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                    {item.code} - {item.name}{item.description ? ` (${item.description})` : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input type="number" {...register('moneda', { valueAsNumber: true })} className={inputClassName} />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">RIF / CI</label>
@@ -175,7 +225,18 @@ export function SolicitudForm() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Actividad económica</label>
-            <input {...register('actividad_economica_cliente')} className={inputClassName} />
+            <select
+              {...register('actividad_economica_cliente')}
+              className={inputClassName}
+              disabled={isLoadingCatalogs}
+            >
+              <option value="">Selecciona actividad...</option>
+              {catalogs?.actividades_economicas.map((c) => (
+                <option key={c.code} value={c.code} disabled={!c.is_selectable}>
+                  {c.code} - {c.name}
+                </option>
+              ))}
+            </select>
             {errors.actividad_economica_cliente && <p className="mt-1 text-xs text-red-600">{errors.actividad_economica_cliente.message}</p>}
           </div>
           <div>
@@ -199,11 +260,17 @@ export function SolicitudForm() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Tipo cuenta nacional</label>
-            <select {...register('tipo_cuenta_moneda_nacional')} className={inputClassName}>
-              <option value="8">8</option>
-              <option value="9">9</option>
-              <option value="10">10</option>
+            <select {...register('tipo_cuenta_moneda_nacional', { valueAsNumber: true })} className={inputClassName} disabled={isLoadingCatalogs}>
+              <option value="">No aplica</option>
+              {catalogs?.instrumentos_captacion
+                ?.filter(item => ['8', '9', '10'].includes(item.code))
+                .map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
             </select>
+            {errors.tipo_cuenta_moneda_nacional && <p className="mt-1 text-xs text-red-600">{errors.tipo_cuenta_moneda_nacional.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Cuenta extranjera</label>
@@ -212,18 +279,41 @@ export function SolicitudForm() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Tipo cuenta extranjera</label>
-            <select {...register('tipo_cuenta_moneda_extranjera')} className={inputClassName}>
-              <option value="31">31</option>
-              <option value="32">32</option>
+            <select {...register('tipo_cuenta_moneda_extranjera', { valueAsNumber: true })} className={inputClassName} disabled={isLoadingCatalogs}>
+              <option value="">No aplica</option>
+              {catalogs?.instrumentos_captacion
+                ?.filter(item => ['31', '32'].includes(item.code))
+                .map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
             </select>
+            {errors.tipo_cuenta_moneda_extranjera && <p className="mt-1 text-xs text-red-600">{errors.tipo_cuenta_moneda_extranjera.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Destino fondos</label>
-            <input type="number" {...register('destino_fondos')} className={inputClassName} />
+            <select {...register('destino_fondos', { valueAsNumber: true })} className={inputClassName} disabled={isLoadingCatalogs}>
+              <option value="">Selecciona destino...</option>
+              {catalogs?.destinos_fondos?.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+            {errors.destino_fondos && <p className="mt-1 text-xs text-red-600">{errors.destino_fondos.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Medio pago</label>
-            <input type="number" {...register('medio_pago')} className={inputClassName} />
+            <select {...register('medio_pago', { valueAsNumber: true })} className={inputClassName} disabled={isLoadingCatalogs}>
+              <option value="">Selecciona medio...</option>
+              {catalogs?.medios_pago?.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+            {errors.medio_pago && <p className="mt-1 text-xs text-red-600">{errors.medio_pago.message}</p>}
           </div>
         </div>
 

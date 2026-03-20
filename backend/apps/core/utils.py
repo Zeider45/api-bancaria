@@ -121,3 +121,64 @@ def decode_sudeban_error(error_code: int) -> list:
             remaining -= code
     
     return errors if errors else [f"Error desconocido: {error_code}"]
+
+
+def extract_sudeban_error_code(detail: Any) -> Optional[int]:
+    """Best-effort extraction of SUDEBAN error codes.
+
+    SUDEBAN error payloads may come as strings, dicts, or nested dicts.
+    We look for common keys like `errorCode` and variants.
+    """
+
+    def _to_int(value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                try:
+                    return int(stripped)
+                except ValueError:
+                    return None
+        return None
+
+    def _search(obj: Any, depth: int = 0) -> Optional[int]:
+        if depth > 3:
+            return None
+        if isinstance(obj, dict):
+            for key in (
+                'errorCode',
+                'error_code',
+                'codigoError',
+                'codigo_error',
+                'codError',
+            ):
+                if key in obj:
+                    found = _to_int(obj.get(key))
+                    if found is not None:
+                        return found
+
+            for value in obj.values():
+                found = _search(value, depth + 1)
+                if found is not None:
+                    return found
+
+        if isinstance(obj, list):
+            for item in obj[:10]:
+                found = _search(item, depth + 1)
+                if found is not None:
+                    return found
+
+        if isinstance(obj, str):
+            # Sometimes it's a JSON string.
+            try:
+                parsed = json.loads(obj)
+            except Exception:
+                return None
+            return _search(parsed, depth + 1)
+
+        return None
+
+    return _search(detail)
