@@ -25,8 +25,13 @@ INSTALLED_APPS = [
     # Local apps
     'apps.core',
     'apps.intervencion_bancaria',
+<<<<<<< HEAD
+    'apps.subasta_privada',
+    'apps.resultados_subasta',
+=======
     'apps.subasta_privada',  # <-- NUEVO
     'apps.operaciones_mesa_de_cambio',
+>>>>>>> 549c5be327dcc9b005c66dee4877d6bd0c04a82b
 ]
 
 MIDDLEWARE = [
