@@ -52,7 +52,7 @@ def process_pending_transacciones():
     # Send valid transactions to SUDEBAN
     result = send_to_sudeban(
         valid_transacciones,
-        webhook_url=settings.SUDEBAN_WEBHOOK_URL
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API01', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
     )
     
     if result['success']:
@@ -99,7 +99,10 @@ def process_single_transaccion(transaccion_id: int):
         }
     
     # Send
-    result = send_to_sudeban([transaccion])
+    result = send_to_sudeban(
+        [transaccion],
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API01', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)),
+    )
     
     if result['success']:
         transaccion.status = 'sent'

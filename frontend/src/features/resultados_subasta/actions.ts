@@ -1,6 +1,6 @@
 'use server';
 
-import { api } from '@/core/api';
+import { api, getApiErrorMessage } from '@/core/api';
 import { ResultadoSubasta, ResultadoCreateInput } from './types';
 
 export async function getResultados(limit = 100): Promise<ResultadoSubasta[]> {
@@ -37,7 +37,22 @@ export async function createResultado(data: ResultadoCreateInput): Promise<{ suc
   try {
     await api.post('/resultados-subasta/create', data);
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.response?.data?.error || 'Error al crear resultado' };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al crear resultado'),
+    };
+  }
+}
+
+export async function sendPendingResultados(): Promise<{ success: boolean; error?: string; [key: string]: any }> {
+  try {
+    const response = await api.post('/resultados-subasta/send-pending');
+    return response.data;
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getApiErrorMessage(error, 'Error al enviar resultados pendientes'),
+    };
   }
 }

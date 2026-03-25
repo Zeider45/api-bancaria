@@ -78,12 +78,7 @@ def build_error_response(error_code: int, detail: str) -> Dict[str, Any]:
     }
 
 
-def decode_sudeban_error(error_code: int) -> list:
-    """
-    Decode SUDEBAN error code into list of individual errors
-    Based on the bitmask system described in manuals
-    """
-    error_messages = {
+_SUDEBAN_ERROR_MESSAGES_DEFAULT: Dict[int, str] = {
         1: "Validación del campo 'Moneda'",
         2: "Validación de los campos: 'Tipo de Pacto', 'Tipo Operación'",
         4: "Validación del campo 'Actividad Económica' cliente origen de los fondos",
@@ -103,24 +98,79 @@ def decode_sudeban_error(error_code: int) -> list:
         131072: "Validación del campo 'Tipo Transacción'",
         524288: "Error de validación del Estatus de Verificación",
         4194304: "Duplicidad en la identificación de la transacción",
+        # Date-fields validation varies per API; overridden in per-API tables.
         8388608: "Validación de los campos: 'Fecha Intervención', 'Fecha Operación Cliente'",
         33554432: "Validación del Campo 'Contravalor Bs', 'Contravalor Final Bs'",
-    }
-    
-    errors = []
-    remaining = error_code
-    
-    # Special case: if it's a single error in the list
-    if error_code in error_messages:
-        return [error_messages[error_code]]
-    
-    # Decode bitmask
-    for code in sorted(error_messages.keys(), reverse=True):
-        if remaining >= code:
-            errors.append(error_messages[code])
-            remaining -= code
-    
-    return errors if errors else [f"Error desconocido: {error_code}"]
+}
+
+# Optional API-specific overrides. If an API key is missing, the default table is used.
+_SUDEBAN_ERROR_MESSAGES_BY_API: Dict[str, Dict[int, str]] = {
+    # API-01: Intervención Cambiaria a través del BCV
+    'API-01': {
+        **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        8388608: "Validación de los campos: 'Fecha Intervención', 'Fecha Operación Cliente'",
+    },
+    # API-02: Libro de órdenes Subasta Privada
+    'API-02': {
+        **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        8388608: "Validación de los campos: 'Fecha Subasta', 'Fecha Solicitud'",
+    },
+    # API-03: Resultados de la Subasta Privada
+    'API-03': {
+        **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        8388608: "Validación de los campos: 'Fecha Subasta', 'Fecha Solicitud'",
+    },
+    # API-04: Operaciones a través de Mesas de Cambio
+    'API-04': {
+        **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        8388608: "Validación de los campos: 'Fecha Pacto'",
+    },
+}
+
+
+def _iter_set_bits(value: int):
+    remaining = int(value)
+    while remaining:
+        lowest = remaining & -remaining
+        yield int(lowest)
+        remaining -= lowest
+
+
+def decode_sudeban_error(error_code: int, api: Optional[str] = None) -> list:
+    """Decode SUDEBAN error codes (bitmask) into a list of human-friendly messages.
+
+    `api` allows selecting an API-specific table (API-01..API-04). If not
+    provided, or if no specific table is found, the default table is used.
+    """
+
+    if error_code is None:
+        return []
+
+    try:
+        error_code_int = int(error_code)
+    except Exception:
+        return [f"Error desconocido: {error_code}"]
+
+    if error_code_int == 0:
+        return []
+
+    table = _SUDEBAN_ERROR_MESSAGES_BY_API.get(api) or _SUDEBAN_ERROR_MESSAGES_DEFAULT
+    messages: list[str] = []
+
+    for bit in sorted(table.keys()):
+        if error_code_int & bit:
+            messages.append(table[bit])
+
+    known_mask = 0
+    for bit in table.keys():
+        known_mask |= bit
+
+    unknown_part = error_code_int & ~known_mask
+    if unknown_part:
+        unknown_bits = list(_iter_set_bits(unknown_part))
+        messages.append(f"Códigos desconocidos: {', '.join(map(str, unknown_bits))}")
+
+    return messages if messages else [f"Error desconocido: {error_code_int}"]
 
 
 def extract_sudeban_error_code(detail: Any) -> Optional[int]:

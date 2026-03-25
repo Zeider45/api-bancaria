@@ -10,7 +10,7 @@ import { useState } from 'react';
 
 const correccionSchema = z.object({
   nombre_cliente: z.string().optional(),
-  actividad_economica_cliente: z.string().optional(),
+  actividad_economica_cliente: z.string().max(10, 'Máximo 10 caracteres').optional(),
   monto_divisa: z.number().positive().optional(),
   tipo_cambio_bs: z.number().positive().optional(),
   codigo_cuenta_moneda_nacional: z.string().length(20).optional(),
@@ -96,10 +96,24 @@ export function CorreccionForm({ transaccion, catalogs, onSuccess }: CorreccionF
           <label className="block text-sm font-medium text-gray-700">
             Actividad Económica
           </label>
-          <input
-            {...register('actividad_economica_cliente')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
+          {catalogs?.actividades_economicas?.length ? (
+            <select
+              {...register('actividad_economica_cliente')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">— sin cambio —</option>
+              {catalogs.actividades_economicas.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              {...register('actividad_economica_cliente')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          )}
           {errors.actividad_economica_cliente && (
             <p className="mt-1 text-sm text-red-600">{errors.actividad_economica_cliente.message}</p>
           )}

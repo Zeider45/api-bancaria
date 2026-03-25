@@ -1,5 +1,5 @@
 from ninja import Schema
-from typing import List
+from typing import List, Optional
 
 class ResultadoSudebanSchema(Schema):
     """
@@ -32,3 +32,4 @@ class ResultadoSudebanRequestSchema(Schema):
     """
     idEntidadBancaria: str
     transacciones: List[ResultadoSudebanSchema]
+    webhookUrl: Optional[str] = None

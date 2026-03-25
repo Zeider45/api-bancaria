@@ -75,7 +75,9 @@ class MonedaCatalog(CatalogBaseModel):
 
 
 class ActividadEconomicaCatalog(CatalogBaseModel):
-    code = models.CharField(max_length=4, unique=True)
+    # SUDEBAN (T004): el catálogo completo incluye códigos de rama (5+ dígitos).
+    # Guardamos el código final (último nivel del seed) preservando ceros a la izquierda.
+    code = models.CharField(max_length=10, unique=True)
 
     class Meta(CatalogBaseModel.Meta):
         db_table = 'core_actividades_economicas_catalog'

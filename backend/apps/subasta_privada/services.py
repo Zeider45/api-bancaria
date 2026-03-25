@@ -204,7 +204,7 @@ def send_to_sudeban(
         # Handle error - mark as failed but track error
         detail = result.get('detail')
         extracted_code = extract_sudeban_error_code(detail)
-        decoded_messages = decode_sudeban_error(extracted_code) if extracted_code else None
+        decoded_messages = decode_sudeban_error(extracted_code, api='API-02') if extracted_code else None
         if isinstance(detail, str):
             detail_text = detail
         else:
@@ -284,7 +284,7 @@ def process_sudeban_callback(codigo_subasta: str, status: str, error_code: Optio
             )
             logger.info(f"Subasta {codigo_subasta} confirmed successful")
         elif status == 'rejected' and error_code:
-            error_messages = decode_sudeban_error(error_code)
+            error_messages = decode_sudeban_error(error_code, api='API-02')
             solicitudes.update(
                 status='rejected',
                 error_code=error_code,

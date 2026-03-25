@@ -67,7 +67,19 @@ def list_rejected(request):
     return selectors.list_rejected_transacciones()
 
 
-@api.get("/transacciones/{transaccion_id}", response=IntervencionTransaccionOutput)
+@api.post("/transacciones/send-pending", response={200: dict, 400: dict})
+def send_pending_transacciones(request):
+    """Manual send: transmit all pending intervencion transacciones to SUDEBAN."""
+    try:
+        result = services.send_pending_transacciones(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API01', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")
+
+
+@api.get("/transacciones/{transaccion_id}", response={200: IntervencionTransaccionOutput, 404: dict})
 def get_transaccion(request, transaccion_id: int):
     """Get single transaction by ID"""
     transaccion = selectors.get_transaccion_by_id(transaccion_id)
@@ -92,15 +104,3 @@ def correct_transaccion(request, transaccion_id: int, payload: IntervencionCorre
 def get_stats(request):
     """Get intervention statistics"""
     return selectors.get_stats()
-
-
-@api.post("/transacciones/send-pending", response={200: dict, 400: dict})
-def send_pending_transacciones(request):
-    """Manual send: transmit all pending intervencion transacciones to SUDEBAN."""
-    try:
-        result = services.send_pending_transacciones(
-            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)
-        )
-        return 200, result
-    except Exception as e:
-        return 400, build_error_response(500, f"Error interno: {str(e)}")

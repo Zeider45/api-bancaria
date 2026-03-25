@@ -52,7 +52,7 @@ def process_pending_solicitudes():
     # Send valid requests to SUDEBAN
     result = send_to_sudeban(
         valid_solicitudes,
-        webhook_url=settings.SUDEBAN_WEBHOOK_URL
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API02', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
     )
     
     if result['success']:
@@ -99,7 +99,10 @@ def process_single_solicitud(solicitud_id: int):
         }
     
     # Send
-    result = send_to_sudeban([solicitud])
+    result = send_to_sudeban(
+        [solicitud],
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API02', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)),
+    )
     
     if result['success']:
         solicitud.status = 'sent'

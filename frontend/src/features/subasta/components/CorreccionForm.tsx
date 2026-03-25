@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 const correccionSchema = z.object({
   nombre_cliente: z.string().optional(),
-  actividad_economica_cliente: z.string().optional(),
+  actividad_economica_cliente: z.string().max(10, 'Máximo 10 caracteres').optional(),
   monto_divisa: z.coerce.number().positive().optional(),
   tipo_cambio_bs: z.coerce.number().positive().optional(),
   codigo_cuenta_moneda_nacional: z.string().length(20).optional(),
@@ -131,8 +131,8 @@ export function CorreccionForm({ solicitud }: CorreccionFormProps) {
           >
             <option value="">Seleccione una actividad...</option>
             {catalogs?.actividades_economicas.map((act) => (
-              <option key={act.code} value={act.code}>
-                {act.name}
+              <option key={act.code} value={act.code} disabled={!act.is_selectable}>
+                {act.code} - {act.name}
               </option>
             ))}
           </select>

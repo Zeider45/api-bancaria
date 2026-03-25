@@ -12,11 +12,14 @@ export interface ResultadoSubasta {
   contravalor_final_bs: number;
   tipo_operacion: number;
   estatus_solicitud_cliente: string;
+  status: string;
+  error_detail?: string | null;
   created_at: string;
 }
 
 export interface ResultadoCreateInput {
   codigo_ente_supervisado: string;
+  fecha_recepcion_fondos: string;
   fecha_subasta: string;
   codigo_identificacion_subasta: string;
   tipo_operacion: number;
@@ -29,10 +32,10 @@ export interface ResultadoCreateInput {
   identificacion_cliente: string;
   nombre_cliente: string;
   actividad_economica_cliente: string;
-  codigo_cuenta_cliente_moneda_nacional: string;
-  tipo_cuenta_cliente_moneda_nacional: number;
-  codigo_cuenta_cliente_moneda_extranjera: string;
-  tipo_cuenta_cliente_moneda_extranjera: number;
+  codigo_cuenta_moneda_nacional: string;
+  tipo_cuenta_moneda_nacional: number;
+  codigo_cuenta_moneda_extranjera: string;
+  tipo_cuenta_moneda_extranjera: number;
   destino_fondos: number;
   medio_pago: number;
 }

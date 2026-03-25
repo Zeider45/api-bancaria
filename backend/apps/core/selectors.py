@@ -71,7 +71,11 @@ def is_valid_mecanismo_cambiario(code: str) -> bool:
     return MecanismoCambiarioCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
 
 def is_valid_actividad_economica(code: str) -> bool:
-    return ActividadEconomicaCatalog.objects.filter(code=str(code).strip(), is_active=True).exists()
+    return ActividadEconomicaCatalog.objects.filter(
+        code=str(code).strip(),
+        is_active=True,
+        is_selectable=True,
+    ).exists()
 
 
 def is_valid_moneda(code: str | int) -> bool:

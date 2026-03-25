@@ -212,7 +212,7 @@ def send_to_sudeban(
         # Handle error - mark as failed but track error
         detail = result.get('detail')
         extracted_code = extract_sudeban_error_code(detail)
-        decoded_messages = decode_sudeban_error(extracted_code) if extracted_code else None
+        decoded_messages = decode_sudeban_error(extracted_code, api='API-01') if extracted_code else None
         if isinstance(detail, str):
             detail_text = detail
         else:

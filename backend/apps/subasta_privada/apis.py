@@ -68,19 +68,31 @@ def list_rejected(request):
     return selectors.list_rejected_solicitudes()
 
 
-@api.get("/solicitudes/{solicitud_id}", response=SubastaSolicitudOutput)
-def get_solicitud(request, solicitud_id: int):
-    """Get single subasta request by ID"""
-    solicitud = selectors.get_solicitud_by_id(solicitud_id)
-    if not solicitud:
-        return 404, {"error": "Solicitud not found"}
-    return solicitud
+@api.post("/solicitudes/send-pending", response={200: dict, 400: dict})
+def send_pending_solicitudes(request):
+    """Manual send: transmit all pending subasta solicitudes to SUDEBAN."""
+    try:
+        result = services.send_pending_solicitudes(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API02', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")
 
 
 @api.get("/solicitudes/by-subasta/{codigo_subasta}", response=List[SubastaSolicitudOutput])
 def get_by_subasta(request, codigo_subasta: str):
     """Get all requests for a specific subasta"""
     return selectors.get_solicitudes_by_subasta(codigo_subasta)
+
+
+@api.get("/solicitudes/{solicitud_id}", response={200: SubastaSolicitudOutput, 404: dict})
+def get_solicitud(request, solicitud_id: int):
+    """Get single subasta request by ID"""
+    solicitud = selectors.get_solicitud_by_id(solicitud_id)
+    if not solicitud:
+        return 404, {"error": "Solicitud not found"}
+    return solicitud
 
 
 @api.post("/solicitudes/{solicitud_id}/correct")
@@ -136,15 +148,3 @@ def sudeban_callback(request):
         return {"success": True}
     except Exception as e:
         return 400, {"error": str(e)}
-
-
-@api.post("/solicitudes/send-pending", response={200: dict, 400: dict})
-def send_pending_solicitudes(request):
-    """Manual send: transmit all pending subasta solicitudes to SUDEBAN."""
-    try:
-        result = services.send_pending_solicitudes(
-            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)
-        )
-        return 200, result
-    except Exception as e:
-        return 400, build_error_response(500, f"Error interno: {str(e)}")

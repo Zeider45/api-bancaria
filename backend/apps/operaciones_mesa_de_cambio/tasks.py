@@ -47,7 +47,7 @@ def process_pending_operaciones():
 
     result = send_to_sudeban(
         valid_operaciones,
-        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None),
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API04', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)),
     )
 
     if result['success']:
@@ -88,7 +88,10 @@ def process_single_operacion(operacion_id: int):
         operacion.save()
         return {'success': False, 'errors': errors}
 
-    result = send_to_sudeban([operacion])
+    result = send_to_sudeban(
+        [operacion],
+        webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API04', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)),
+    )
 
     if result['success']:
         operacion.status = 'sent'

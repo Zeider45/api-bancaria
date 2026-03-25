@@ -64,7 +64,19 @@ def list_rejected(request):
     return selectors.list_rejected_operaciones()
 
 
-@api.get("/operaciones/{operacion_id}", response=OperacionMesaDeCambioOutput)
+@api.post("/operaciones/send-pending", response={200: dict, 400: dict})
+def send_pending_operaciones(request):
+    """Manual send: transmit all pending mesa de cambio operaciones to SUDEBAN."""
+    try:
+        result = services.send_pending_operaciones(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API04', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")
+
+
+@api.get("/operaciones/{operacion_id}", response={200: OperacionMesaDeCambioOutput, 404: dict})
 def get_operacion(request, operacion_id: int):
     """Get a single mesa de cambio transaction by ID."""
     operacion = selectors.get_operacion_by_id(operacion_id)
@@ -89,15 +101,3 @@ def correct_operacion(request, operacion_id: int, payload: OperacionMesaDeCambio
 def get_stats(request):
     """Get mesa de cambio statistics."""
     return selectors.get_stats()
-
-
-@api.post("/operaciones/send-pending", response={200: dict, 400: dict})
-def send_pending_operaciones(request):
-    """Manual send: transmit all pending mesa de cambio operaciones to SUDEBAN."""
-    try:
-        result = services.send_pending_operaciones(
-            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL', None)
-        )
-        return 200, result
-    except Exception as e:
-        return 400, build_error_response(500, f"Error interno: {str(e)}")

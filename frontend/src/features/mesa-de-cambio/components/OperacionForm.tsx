@@ -32,7 +32,7 @@ const operacionSchema = z.object({
     .min(2, 'Requerido')
     .max(20, 'Máximo 20 caracteres'),
   nombre_cliente_oferente: z.string().min(1, 'Requerido').max(100),
-  actividad_economica_cliente_oferente: z.string().min(1, 'Requerido').max(99),
+  actividad_economica_cliente_oferente: z.string().min(1, 'Requerido').max(10, 'Máximo 10 caracteres'),
   codigo_cuenta_moneda_nacional_oferente: account20Digits,
   tipo_cuenta_moneda_nacional_cliente_oferente: z.coerce
     .number()
@@ -49,7 +49,7 @@ const operacionSchema = z.object({
     .min(2, 'Requerido')
     .max(20, 'Máximo 20 caracteres'),
   nombre_cliente_demandante: z.string().min(1, 'Requerido').max(100),
-  actividad_economica_cliente_demandante: z.string().min(1, 'Requerido').max(99),
+  actividad_economica_cliente_demandante: z.string().min(1, 'Requerido').max(10, 'Máximo 10 caracteres'),
   codigo_cuenta_moneda_nacional_demandante: account20Digits,
   tipo_cuenta_moneda_nacional_cliente_demandante: z.coerce
     .number()
@@ -74,6 +74,13 @@ function getLocalDateTime(value?: Date) {
   return local.toISOString().slice(0, 16);
 }
 
+function toUtcIsoDateTime(value: string) {
+  if (!value) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toISOString();
+}
+
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-1 text-xs text-red-600">{message}</p>;
@@ -92,7 +99,7 @@ export function OperacionForm() {
       identificacion_ente_supervisado: '0108',
       tipo_pacto: '',
       moneda: 840,
-      fecha_pacto: getLocalDateTime(),
+      fecha_pacto: getLocalDateTime(new Date(Date.now() + 5 * 60 * 1000)),
       monto_divisa: 0,
       tipo_cambio_bs: 0,
       contravalor_bs: undefined,
@@ -163,7 +170,7 @@ export function OperacionForm() {
         identificacion_ente_supervisado: data.identificacion_ente_supervisado,
         tipo_pacto: data.tipo_pacto,
         moneda: data.moneda,
-        fecha_pacto: data.fecha_pacto,
+        fecha_pacto: toUtcIsoDateTime(data.fecha_pacto),
         monto_divisa: data.monto_divisa,
         tipo_cambio_bs: data.tipo_cambio_bs,
         contravalor_bs: data.contravalor_bs ?? contravalorCalculado,
@@ -196,7 +203,7 @@ export function OperacionForm() {
       setSuccess('Operación registrada correctamente.');
       reset({
         ...defaultValues,
-        fecha_pacto: getLocalDateTime(),
+        fecha_pacto: getLocalDateTime(new Date(Date.now() + 5 * 60 * 1000)),
       });
       router.refresh();
     });

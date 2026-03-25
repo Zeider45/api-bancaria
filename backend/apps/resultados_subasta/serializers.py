@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
 from apps.core.utils import parse_rif, validate_rif_range
+from apps.core import selectors as core_selectors
 
 # Use Decimal directly with pydantic validators if condecimal has issues in newer pydantic
 PositiveDecimalField = condecimal(ge=0, max_digits=20, decimal_places=4)
@@ -41,6 +42,12 @@ class ResultadoSubastaInput(Schema):
 
     destino_fondos: int
     medio_pago: int
+
+    @field_validator('codigo_ente_supervisado')
+    def validate_ente_supervisado(cls, v: str):
+        if not core_selectors.is_valid_ente_supervisado(v):
+            raise ValueError('Código Ente Supervisado inválido (no existe en el catálogo)')
+        return str(v).strip()
 
     @model_validator(mode='after')
     def validate_cross_fields(self):
@@ -83,7 +90,7 @@ class ResultadoSubastaInput(Schema):
             if self.medio_pago != 0:
                 raise ValueError('Si es SNA, medio_pago debe ser 0')
         else:
-            raise ValueError('estatus_solicitud_cliente invÃ¡lido (debe ser SA o SNA)')
+            raise ValueError('estatus_solicitud_cliente inválido (debe ser SA o SNA)')
 
         return self
 
@@ -91,28 +98,60 @@ class ResultadoSubastaInput(Schema):
     def validate_rif(cls, v):
         rif_type, rif_number = parse_rif(v)
         if not rif_type:
-            raise ValueError('Formato RIF invÃ¡lido.')
+            raise ValueError('Formato RIF inválido.')
         if not validate_rif_range(rif_type, rif_number):
-            raise ValueError('NÃºmero de RIF fuera de rango permitido')
+            raise ValueError('Número de RIF fuera de rango permitido')
         return v.upper()
 
     @field_validator('moneda')
     def validate_moneda(cls, v):
         if v == 928:
-            raise ValueError('Moneda no puede ser BolÃvar (928)')
+            raise ValueError('Moneda no puede ser Bolívar (928)')
+        if not core_selectors.is_valid_moneda(v):
+            raise ValueError('Moneda inválida (no existe en el catálogo)')
         return v
+
+    @field_validator('actividad_economica_cliente')
+    def validate_actividad_economica(cls, v: str):
+        if not core_selectors.is_valid_actividad_economica(v):
+            raise ValueError('Actividad Económica inválida (no existe en el catálogo)')
+        return str(v).strip()
 
     @field_validator('tipo_cuenta_moneda_nacional')
     def validate_tipo_cuenta_nacional(cls, v):
         if v not in [8, 9, 10]:
             raise ValueError('Tipo cuenta nacional debe ser 8, 9 o 10')
+        if not core_selectors.is_valid_instrumento_captacion(v):
+            raise ValueError('Tipo cuenta nacional inválida (no existe en el catálogo)')
         return v
 
     @field_validator('tipo_cuenta_moneda_extranjera')
     def validate_tipo_cuenta_extranjera(cls, v):
         if v not in [31, 32]:
             raise ValueError('Tipo cuenta extranjera debe ser 31 o 32')
+        if not core_selectors.is_valid_instrumento_captacion(v):
+            raise ValueError('Tipo cuenta extranjera inválida (no existe en el catálogo)')
         return v
+
+    @field_validator('destino_fondos')
+    def validate_destino_fondos(cls, v: int):
+        # En API-03: SA requiere destino != 0; SNA requiere destino=0 (validación cruzada).
+        # Si viene distinto de 0, debe existir en el catálogo.
+        if v is None:
+            raise ValueError('Destino de Fondos es requerido')
+        if int(v) != 0 and not core_selectors.is_valid_destino_fondos(v):
+            raise ValueError('Destino de Fondos inválido (no existe en el catálogo)')
+        return int(v)
+
+    @field_validator('medio_pago')
+    def validate_medio_pago(cls, v: int):
+        # En API-03: SA requiere medio_pago=2; SNA requiere medio_pago=0 (validación cruzada).
+        # Si viene distinto de 0, debe existir en el catálogo.
+        if v is None:
+            raise ValueError('Medio de Pago es requerido')
+        if int(v) != 0 and not core_selectors.is_valid_medio_pago(v):
+            raise ValueError('Medio de Pago inválido (no existe en el catálogo)')
+        return int(v)
 
 
 class ResultadoBatchInput(Schema):

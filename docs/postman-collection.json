@@ -1,0 +1,612 @@
+{
+  "info": {
+    "_postman_id": "b5d6cc6d-9f07-4d54-a3b7-2a8073ab8e65",
+    "name": "api-bancaria",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección Postman para api-bancaria (endpoints internos /api/internal/v1)."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "apiV1", "value": "{{baseUrl}}/api/internal/v1" },
+    { "key": "apiIntervencion", "value": "{{apiV1}}/intervencion" },
+    { "key": "apiSubasta", "value": "{{apiV1}}/subasta" },
+    { "key": "apiMesaCambio", "value": "{{apiV1}}/mesa-de-cambio" },
+    { "key": "apiResultadosSubasta", "value": "{{apiV1}}/resultados-subasta" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Genera un sufijo único por ejecución",
+          "if (!pm.environment.get('suffix')) {",
+          "  pm.environment.set('suffix', Date.now().toString());",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Core",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiV1}}/health/", "host": ["{{apiV1}}"], "path": ["health", ""] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.status).to.eql('healthy');",
+                  "pm.expect(json).to.have.property('timestamp');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (dev-admin fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiV1}}/auth/login/", "host": ["{{apiV1}}"], "path": ["auth", "login", ""] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 o 401', () => pm.expect([200,401]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('id');",
+                  "  pm.expect(json).to.have.property('username');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catálogos (intervencion-api01)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiV1}}/catalogs/intervencion-api01/", "host": ["{{apiV1}}"], "path": ["catalogs", "intervencion-api01", ""] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "['entes_supervisados','mecanismos_cambiarios','monedas','actividades_economicas','instrumentos_captacion','destinos_fondos','medios_pago']",
+                  "  .forEach(k => pm.expect(json).to.have.property(k));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Config (puede fallar por wiring)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiV1}}/config/", "host": ["{{apiV1}}"], "path": ["config", ""] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 o 500 (ver nota docs)', () => pm.expect([200,500]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('environment');",
+                  "  pm.expect(json).to.have.property('timezone');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Intervención (API-01)",
+      "item": [
+        {
+          "name": "Create transacción",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_ente_supervisado\": \"0001\",\n  \"tipo_intervencion\": \"1\",\n  \"fecha_intervencion\": \"2026-03-23T10:00:00\",\n  \"codigo_identificacion_intervencion\": \"INT-{{suffix}}\",\n  \"fecha_operacion_cliente\": \"2026-03-23T09:00:00\",\n  \"moneda\": 840,\n  \"identificacion_cliente\": \"J123456789\",\n  \"nombre_cliente\": \"Cliente Prueba\",\n  \"actividad_economica_cliente\": \"0001\",\n  \"monto_divisa\": \"100.0000\",\n  \"tipo_cambio_bs\": \"40.0000\",\n  \"destino_fondos\": 1,\n  \"medio_pago\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiIntervencion}}/transacciones/create", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "create"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json).to.have.property('id');",
+                  "pm.expect(json).to.have.property('status');",
+                  "pm.environment.set('intervencion_id', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Batch transacciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transacciones\": [\n    {\n      \"codigo_ente_supervisado\": \"0001\",\n      \"tipo_intervencion\": \"1\",\n      \"fecha_intervencion\": \"2026-03-23T10:00:00\",\n      \"codigo_identificacion_intervencion\": \"INT-B1-{{suffix}}\",\n      \"fecha_operacion_cliente\": \"2026-03-23T09:00:00\",\n      \"moneda\": 840,\n      \"identificacion_cliente\": \"J123456789\",\n      \"nombre_cliente\": \"Cliente Batch 1\",\n      \"actividad_economica_cliente\": \"0001\",\n      \"monto_divisa\": \"10.0000\",\n      \"tipo_cambio_bs\": \"40.0000\",\n      \"destino_fondos\": 1,\n      \"medio_pago\": 2\n    },\n    {\n      \"codigo_ente_supervisado\": \"0001\",\n      \"tipo_intervencion\": \"1\",\n      \"fecha_intervencion\": \"2026-03-23T10:00:00\",\n      \"codigo_identificacion_intervencion\": \"INT-B2-{{suffix}}\",\n      \"fecha_operacion_cliente\": \"2026-03-23T09:00:00\",\n      \"moneda\": 840,\n      \"identificacion_cliente\": \"J987654321\",\n      \"nombre_cliente\": \"Cliente Batch 2\",\n      \"actividad_economica_cliente\": \"0001\",\n      \"monto_divisa\": \"20.0000\",\n      \"tipo_cambio_bs\": \"40.0000\",\n      \"destino_fondos\": 1,\n      \"medio_pago\": 2\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiIntervencion}}/transacciones/batch", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "batch"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json).to.have.property('success');",
+                  "pm.expect(json).to.have.property('errors');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transacciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiIntervencion}}/transacciones/?limit=50",
+              "host": ["{{apiIntervencion}}"],
+              "path": ["transacciones", ""],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json()).to.be.an('array');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiIntervencion}}/transacciones/rejected/", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "rejected", ""] }
+          }
+        },
+        {
+          "name": "Get transacción by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiIntervencion}}/transacciones/{{intervencion_id}}", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "{{intervencion_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 o 404', () => pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Correct transacción (solo rejected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_cliente\": \"Cliente Corregido\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiIntervencion}}/transacciones/{{intervencion_id}}/correct", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "{{intervencion_id}}", "correct"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200/400/404', () => pm.expect([200,400,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send pending (SUDEBAN)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{apiIntervencion}}/transacciones/send-pending", "host": ["{{apiIntervencion}}"], "path": ["transacciones", "send-pending"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subasta Privada (API-02)",
+      "item": [
+        {
+          "name": "Create solicitud",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_ente_supervisado\": \"0001\",\n  \"fecha_subasta\": \"2026-03-23T10:00:00\",\n  \"codigo_identificacion_subasta\": \"SUB-{{suffix}}\",\n  \"fecha_solicitud_cliente\": \"2026-03-23T10:00:00\",\n  \"moneda\": 840,\n  \"identificacion_cliente\": \"J123456789\",\n  \"nombre_cliente\": \"Cliente Subasta\",\n  \"actividad_economica_cliente\": \"0001\",\n  \"monto_divisa\": \"50.0000\",\n  \"tipo_cambio_bs\": \"40.0000\",\n  \"codigo_cuenta_moneda_nacional\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_nacional\": 8,\n  \"codigo_cuenta_moneda_extranjera\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_extranjera\": 31,\n  \"destino_fondos\": 1,\n  \"medio_pago\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiSubasta}}/solicitudes/create", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "create"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('subasta_id', json.id);",
+                  "pm.environment.set('codigo_subasta', json.codigo_identificacion_subasta);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Batch solicitudes",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transacciones\": [\n    {\n      \"codigo_ente_supervisado\": \"0001\",\n      \"fecha_subasta\": \"2026-03-23T10:00:00\",\n      \"codigo_identificacion_subasta\": \"SUB-B1-{{suffix}}\",\n      \"fecha_solicitud_cliente\": \"2026-03-23T10:00:00\",\n      \"moneda\": 840,\n      \"identificacion_cliente\": \"J123456789\",\n      \"nombre_cliente\": \"Cliente Subasta Batch 1\",\n      \"actividad_economica_cliente\": \"0001\",\n      \"monto_divisa\": \"5.0000\",\n      \"tipo_cambio_bs\": \"40.0000\",\n      \"codigo_cuenta_moneda_nacional\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_nacional\": 8,\n      \"codigo_cuenta_moneda_extranjera\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_extranjera\": 31,\n      \"destino_fondos\": 1,\n      \"medio_pago\": 2\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiSubasta}}/solicitudes/batch", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "batch"] }
+          }
+        },
+        {
+          "name": "List solicitudes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiSubasta}}/solicitudes/?limit=50",
+              "host": ["{{apiSubasta}}"],
+              "path": ["solicitudes", ""],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "List rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiSubasta}}/solicitudes/rejected/", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "rejected", ""] }
+          }
+        },
+        {
+          "name": "Get solicitud by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiSubasta}}/solicitudes/{{subasta_id}}", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "{{subasta_id}}"] }
+          }
+        },
+        {
+          "name": "Get solicitudes by subasta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiSubasta}}/solicitudes/by-subasta/{{codigo_subasta}}", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "by-subasta", "{{codigo_subasta}}"] }
+          }
+        },
+        {
+          "name": "Correct solicitud (solo rejected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_cliente\": \"Cliente Subasta Corregido\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiSubasta}}/solicitudes/{{subasta_id}}/correct", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "{{subasta_id}}", "correct"] }
+          }
+        },
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiSubasta}}/summary/?fecha_inicio=2026-03-01T00:00:00&fecha_fin=2026-03-23T23:59:59",
+              "host": ["{{apiSubasta}}"],
+              "path": ["summary", ""],
+              "query": [
+                { "key": "fecha_inicio", "value": "2026-03-01T00:00:00" },
+                { "key": "fecha_fin", "value": "2026-03-23T23:59:59" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Callback SUDEBAN (webhook)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoSubasta\": \"{{codigo_subasta}}\",\n  \"status\": \"success\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiSubasta}}/callback/", "host": ["{{apiSubasta}}"], "path": ["callback", ""] }
+          }
+        },
+        {
+          "name": "Send pending (SUDEBAN)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{apiSubasta}}/solicitudes/send-pending", "host": ["{{apiSubasta}}"], "path": ["solicitudes", "send-pending"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa de Cambio",
+      "item": [
+        {
+          "name": "Create operación",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificacion_ente_supervisado\": \"0001\",\n  \"tipo_pacto\": \"1\",\n  \"moneda\": 840,\n  \"fecha_pacto\": \"2099-01-01T00:00:00\",\n  \"monto_divisa\": \"10.0000\",\n  \"tipo_cambio_bs\": \"40.0000\",\n\n  \"identificacion_cliente_oferente\": \"J123456789\",\n  \"nombre_cliente_oferente\": \"Oferente\",\n  \"actividad_economica_cliente_oferente\": \"0001\",\n  \"codigo_cuenta_moneda_nacional_oferente\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_nacional_cliente_oferente\": 8,\n  \"codigo_cuenta_moneda_extranjera_oferente\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_extranjera_cliente_oferente\": 31,\n  \"origen_fondos\": 1,\n  \"medio_pago_oferente\": 2,\n\n  \"identificacion_cliente_demandante\": \"J987654321\",\n  \"nombre_cliente_demandante\": \"Demandante\",\n  \"actividad_economica_cliente_demandante\": \"0001\",\n  \"codigo_cuenta_moneda_nacional_demandante\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_nacional_cliente_demandante\": 8,\n  \"codigo_cuenta_moneda_extranjera_demandante\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_extranjera_cliente_demandante\": 31,\n  \"destino_fondos\": 1,\n  \"medio_pago_demandante\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/create", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "create"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('mesa_id', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Batch operaciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transacciones\": [\n    {\n      \"identificacion_ente_supervisado\": \"0001\",\n      \"tipo_pacto\": \"1\",\n      \"moneda\": 840,\n      \"fecha_pacto\": \"2099-01-01T00:00:00\",\n      \"monto_divisa\": \"1.0000\",\n      \"tipo_cambio_bs\": \"40.0000\",\n\n      \"identificacion_cliente_oferente\": \"J123456789\",\n      \"nombre_cliente_oferente\": \"Oferente Batch\",\n      \"actividad_economica_cliente_oferente\": \"0001\",\n      \"codigo_cuenta_moneda_nacional_oferente\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_nacional_cliente_oferente\": 8,\n      \"codigo_cuenta_moneda_extranjera_oferente\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_extranjera_cliente_oferente\": 31,\n      \"origen_fondos\": 1,\n      \"medio_pago_oferente\": 2,\n\n      \"identificacion_cliente_demandante\": \"J987654321\",\n      \"nombre_cliente_demandante\": \"Demandante Batch\",\n      \"actividad_economica_cliente_demandante\": \"0001\",\n      \"codigo_cuenta_moneda_nacional_demandante\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_nacional_cliente_demandante\": 8,\n      \"codigo_cuenta_moneda_extranjera_demandante\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_extranjera_cliente_demandante\": 31,\n      \"destino_fondos\": 1,\n      \"medio_pago_demandante\": 2\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/batch", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "batch"] }
+          }
+        },
+        {
+          "name": "List operaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiMesaCambio}}/operaciones/?limit=50",
+              "host": ["{{apiMesaCambio}}"],
+              "path": ["operaciones", ""],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "List rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/rejected/", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "rejected", ""] }
+          }
+        },
+        {
+          "name": "Get operación by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/{{mesa_id}}", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "{{mesa_id}}"] }
+          }
+        },
+        {
+          "name": "Correct operación (solo rejected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_cliente_oferente\": \"Oferente Corregido\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/{{mesa_id}}/correct", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "{{mesa_id}}", "correct"] }
+          }
+        },
+        {
+          "name": "Send pending (SUDEBAN)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{apiMesaCambio}}/operaciones/send-pending", "host": ["{{apiMesaCambio}}"], "path": ["operaciones", "send-pending"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resultados Subasta (API-03)",
+      "item": [
+        {
+          "name": "Create resultado (tipo_operacion=9, SA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo_ente_supervisado\": \"0001\",\n  \"fecha_recepcion_fondos\": \"2026-03-23T12:00:00\",\n  \"fecha_subasta\": \"2026-03-23T10:00:00\",\n  \"codigo_identificacion_subasta\": \"RS-{{suffix}}\",\n\n  \"tipo_operacion\": 9,\n  \"estatus_solicitud_cliente\": \"SA\",\n  \"fecha_solicitud_cliente\": \"2026-03-23T10:00:00\",\n  \"moneda\": 840,\n  \"monto_final_divisa\": \"25.0000\",\n  \"tipo_cambio_final_bs\": \"40.0000\",\n\n  \"identificacion_cliente\": \"J123456789\",\n  \"nombre_cliente\": \"Cliente Resultado\",\n  \"actividad_economica_cliente\": \"0001\",\n\n  \"codigo_cuenta_moneda_nacional\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_nacional\": 8,\n  \"codigo_cuenta_moneda_extranjera\": \"01234567890123456789\",\n  \"tipo_cuenta_moneda_extranjera\": 31,\n\n  \"destino_fondos\": 1,\n  \"medio_pago\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiResultadosSubasta}}/create", "host": ["{{apiResultadosSubasta}}"], "path": ["create"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('resultado_id', json.id);",
+                  "pm.environment.set('resultado_codigo_subasta', json.codigo_identificacion_subasta);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Batch resultados",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transacciones\": [\n    {\n      \"codigo_ente_supervisado\": \"0001\",\n      \"fecha_recepcion_fondos\": \"2026-03-23T12:00:00\",\n      \"fecha_subasta\": \"2026-03-23T10:00:00\",\n      \"codigo_identificacion_subasta\": \"RS-B1-{{suffix}}\",\n      \"tipo_operacion\": 9,\n      \"estatus_solicitud_cliente\": \"SA\",\n      \"fecha_solicitud_cliente\": \"2026-03-23T10:00:00\",\n      \"moneda\": 840,\n      \"monto_final_divisa\": \"1.0000\",\n      \"tipo_cambio_final_bs\": \"40.0000\",\n      \"identificacion_cliente\": \"J123456789\",\n      \"nombre_cliente\": \"Cliente Resultado Batch\",\n      \"actividad_economica_cliente\": \"0001\",\n      \"codigo_cuenta_moneda_nacional\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_nacional\": 8,\n      \"codigo_cuenta_moneda_extranjera\": \"01234567890123456789\",\n      \"tipo_cuenta_moneda_extranjera\": 31,\n      \"destino_fondos\": 1,\n      \"medio_pago\": 2\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{apiResultadosSubasta}}/batch", "host": ["{{apiResultadosSubasta}}"], "path": ["batch"] }
+          }
+        },
+        {
+          "name": "List resultados",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiResultadosSubasta}}/?limit=50",
+              "host": ["{{apiResultadosSubasta}}"],
+              "path": [""],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Get resultado by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiResultadosSubasta}}/{{resultado_id}}", "host": ["{{apiResultadosSubasta}}"], "path": ["{{resultado_id}}"] }
+          }
+        },
+        {
+          "name": "Get resultados by subasta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{apiResultadosSubasta}}/by-subasta/{{resultado_codigo_subasta}}", "host": ["{{apiResultadosSubasta}}"], "path": ["by-subasta", "{{resultado_codigo_subasta}}"] }
+          }
+        },
+        {
+          "name": "Send pending (SUDEBAN)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{apiResultadosSubasta}}/send-pending", "host": ["{{apiResultadosSubasta}}"], "path": ["send-pending"] }
+          }
+        }
+      ]
+    }
+  ]
+}

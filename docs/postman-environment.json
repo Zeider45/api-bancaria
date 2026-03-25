@@ -1,0 +1,23 @@
+{
+  "id": "a7c8e0e9-3e37-4d97-9a3d-6bf70d1e1c0e",
+  "name": "api-bancaria-local",
+  "values": [
+    { "key": "baseUrl", "value": "http://localhost:8000", "enabled": true },
+    { "key": "apiV1", "value": "{{baseUrl}}/api/internal/v1", "enabled": true },
+    { "key": "apiIntervencion", "value": "{{apiV1}}/intervencion", "enabled": true },
+    { "key": "apiSubasta", "value": "{{apiV1}}/subasta", "enabled": true },
+    { "key": "apiMesaCambio", "value": "{{apiV1}}/mesa-de-cambio", "enabled": true },
+    { "key": "apiResultadosSubasta", "value": "{{apiV1}}/resultados-subasta", "enabled": true },
+
+    { "key": "suffix", "value": "", "enabled": true },
+    { "key": "intervencion_id", "value": "", "enabled": true },
+    { "key": "subasta_id", "value": "", "enabled": true },
+    { "key": "codigo_subasta", "value": "", "enabled": true },
+    { "key": "mesa_id", "value": "", "enabled": true },
+    { "key": "resultado_id", "value": "", "enabled": true },
+    { "key": "resultado_codigo_subasta", "value": "", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-03-23T00:00:00.000Z",
+  "_postman_exported_using": "GitHub Copilot"
+}

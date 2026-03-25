@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ResultadoCreateInput } from '../types';
+import { fetchIntervencionApi01Catalogs } from '@/features/intervencion/catalogs';
+import { IntervencionApi01Catalogs } from '@/features/intervencion/types';
 
 interface Props {
   onSubmit: (data: ResultadoCreateInput) => Promise<void>;
@@ -12,6 +14,37 @@ export default function ResultadoForm({ onSubmit }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogs, setCatalogs] = useState<IntervencionApi01Catalogs | null>(null);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCatalogs = async () => {
+      setIsLoadingCatalogs(true);
+      const result = await fetchIntervencionApi01Catalogs();
+      if (active) {
+        setCatalogs(result);
+        setIsLoadingCatalogs(false);
+      }
+    };
+
+    loadCatalogs();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const tipoCuentaNacionalOptions = useMemo(() => {
+    const items = catalogs?.instrumentos_captacion ?? [];
+    return items.filter((item) => ['8', '9', '10'].includes(item.code));
+  }, [catalogs]);
+
+  const tipoCuentaExtranjeraOptions = useMemo(() => {
+    const items = catalogs?.instrumentos_captacion ?? [];
+    return items.filter((item) => ['31', '32'].includes(item.code));
+  }, [catalogs]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,14 +52,75 @@ export default function ResultadoForm({ onSubmit }: Props) {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const tipoOperacion = Number(formData.get('tipo_operacion'));
+    const estatus = (formData.get('estatus_solicitud_cliente') as string) || '';
+    const fechaSubasta = (formData.get('fecha_subasta') as string) || '';
+    const fechaSolicitud = (formData.get('fecha_solicitud_cliente') as string) || '';
+    const destinoFondos = Number(formData.get('destino_fondos'));
+    const medioPago = Number(formData.get('medio_pago'));
+
+    let codigoIdentificacionSubasta = (formData.get('codigo_identificacion_subasta') as string) || '';
+    let normalizedFechaSubasta = fechaSubasta;
+    let normalizedFechaSolicitud = fechaSolicitud;
+
+    if (tipoOperacion === 8) {
+      if (estatus !== 'SA') {
+        setError('Si tipo_operacion es 8, el estatus debe ser SA.');
+        setLoading(false);
+        return;
+      }
+      codigoIdentificacionSubasta = '0';
+      normalizedFechaSubasta = '1900-01-01T00:00';
+      normalizedFechaSolicitud = '1900-01-01T00:00';
+    }
+
+    if (tipoOperacion === 9) {
+      if (codigoIdentificacionSubasta === '0') {
+        setError('Si tipo_operacion es 9, el código de subasta no puede ser 0.');
+        setLoading(false);
+        return;
+      }
+      if (fechaSubasta.slice(0, 10) !== fechaSolicitud.slice(0, 10)) {
+        setError('Si tipo_operacion es 9, la fecha solicitud debe ser igual a la fecha subasta (misma fecha).');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (estatus === 'SA') {
+      if (destinoFondos === 0) {
+        setError('Si el estatus es SA, destino_fondos no puede ser 0.');
+        setLoading(false);
+        return;
+      }
+      if (medioPago !== 2) {
+        setError('Si el estatus es SA, medio_pago debe ser 2.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (estatus === 'SNA') {
+      if (destinoFondos !== 0) {
+        setError('Si el estatus es SNA, destino_fondos debe ser 0.');
+        setLoading(false);
+        return;
+      }
+      if (medioPago !== 0) {
+        setError('Si el estatus es SNA, medio_pago debe ser 0.');
+        setLoading(false);
+        return;
+      }
+    }
+
     const data: any = {
       codigo_ente_supervisado: formData.get('codigo_ente_supervisado') as string,
       fecha_recepcion_fondos: formData.get('fecha_recepcion_fondos') as string,
-      fecha_subasta: formData.get('fecha_subasta') as string,
-      codigo_identificacion_subasta: formData.get('codigo_identificacion_subasta') as string,
-      tipo_operacion: Number(formData.get('tipo_operacion')),
-      estatus_solicitud_cliente: formData.get('estatus_solicitud_cliente') as string,
-      fecha_solicitud_cliente: formData.get('fecha_solicitud_cliente') as string,
+      fecha_subasta: normalizedFechaSubasta,
+      codigo_identificacion_subasta: codigoIdentificacionSubasta,
+      tipo_operacion: tipoOperacion,
+      estatus_solicitud_cliente: estatus,
+      fecha_solicitud_cliente: normalizedFechaSolicitud,
       moneda: Number(formData.get('moneda')),
       identificacion_cliente: formData.get('identificacion_cliente') as string,
       nombre_cliente: formData.get('nombre_cliente') as string,
@@ -37,8 +131,8 @@ export default function ResultadoForm({ onSubmit }: Props) {
       tipo_cuenta_moneda_nacional: Number(formData.get('tipo_cuenta_moneda_nacional')),
       codigo_cuenta_moneda_extranjera: formData.get('codigo_cuenta_moneda_extranjera') as string,
       tipo_cuenta_moneda_extranjera: Number(formData.get('tipo_cuenta_moneda_extranjera')),
-      destino_fondos: Number(formData.get('destino_fondos')),
-      medio_pago: Number(formData.get('medio_pago')),
+      destino_fondos: destinoFondos,
+      medio_pago: medioPago,
     };
 
     try {
@@ -61,7 +155,23 @@ export default function ResultadoForm({ onSubmit }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Ente Supervisado</label>
-          <input required name="codigo_ente_supervisado" type="text" maxLength={4} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {catalogs?.entes_supervisados?.length ? (
+            <select
+              required
+              name="codigo_ente_supervisado"
+              defaultValue={catalogs.entes_supervisados[0]?.code}
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              {catalogs.entes_supervisados.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="codigo_ente_supervisado" type="text" maxLength={4} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
         
         <div>
@@ -108,12 +218,44 @@ export default function ResultadoForm({ onSubmit }: Props) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Actividad Económica</label>
-          <input required name="actividad_economica_cliente" type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {catalogs?.actividades_economicas?.length ? (
+            <select
+              required
+              name="actividad_economica_cliente"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              <option value="">Seleccione una actividad...</option>
+              {catalogs.actividades_economicas.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="actividad_economica_cliente" type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Moneda</label>
-          <input required name="moneda" type="number" defaultValue="840" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {catalogs?.monedas?.length ? (
+            <select
+              required
+              name="moneda"
+              defaultValue="840"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              {catalogs.monedas.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}{item.description ? ` (${item.description})` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="moneda" type="number" defaultValue="840" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Monto Final Divisas</label>
@@ -130,7 +272,23 @@ export default function ResultadoForm({ onSubmit }: Props) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Tipo Cta Nacional (8, 9, 10)</label>
-          <input required name="tipo_cuenta_moneda_nacional" type="number" defaultValue="9" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {tipoCuentaNacionalOptions.length ? (
+            <select
+              required
+              name="tipo_cuenta_moneda_nacional"
+              defaultValue="9"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              {tipoCuentaNacionalOptions.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="tipo_cuenta_moneda_nacional" type="number" defaultValue="9" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Cuenta Extranjera</label>
@@ -138,15 +296,65 @@ export default function ResultadoForm({ onSubmit }: Props) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Tipo Cta Extranjera (31, 32)</label>
-          <input required name="tipo_cuenta_moneda_extranjera" type="number" defaultValue="31" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {tipoCuentaExtranjeraOptions.length ? (
+            <select
+              required
+              name="tipo_cuenta_moneda_extranjera"
+              defaultValue="31"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              {tipoCuentaExtranjeraOptions.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="tipo_cuenta_moneda_extranjera" type="number" defaultValue="31" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Destino Fondos</label>
-          <input required name="destino_fondos" type="number" defaultValue="0" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {catalogs?.destinos_fondos?.length ? (
+            <select
+              required
+              name="destino_fondos"
+              defaultValue="0"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              <option value="0">0 - No aplica</option>
+              {catalogs.destinos_fondos.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="destino_fondos" type="number" defaultValue="0" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Medio Pago (0 o 2)</label>
-          <input required name="medio_pago" type="number" defaultValue="2" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          {catalogs?.medios_pago?.length ? (
+            <select
+              required
+              name="medio_pago"
+              defaultValue="2"
+              disabled={isLoadingCatalogs}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
+            >
+              <option value="0">0 - No aplica</option>
+              {catalogs.medios_pago.map((item) => (
+                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input required name="medio_pago" type="number" defaultValue="2" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
+          )}
         </div>
 
       </div>

@@ -216,7 +216,7 @@ class OperacionMesaDeCambioOutput(Schema):
     id: int
     identificacion_ente_supervisado: str
     tipo_pacto: str
-    moneda: str
+    moneda: int
     fecha_pacto: datetime
     monto_divisa: Decimal
     tipo_cambio_bs: Decimal

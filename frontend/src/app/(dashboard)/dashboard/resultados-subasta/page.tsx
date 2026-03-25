@@ -2,6 +2,7 @@
 import { getResultados } from '@/features/resultados_subasta/actions';
 import ResultadosTable from '@/features/resultados_subasta/components/ResultadosTable';
 import ResultadoForm from '@/features/resultados_subasta/components/ResultadoForm';
+import { SendPendingResultadosButton } from '@/features/resultados_subasta/components/SendPendingResultadosButton';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -19,12 +20,16 @@ export default async function ResultadosSubastaPage() {
             API-03: Carga y consulta de resultados
           </p>
         </div>
+        <SendPendingResultadosButton />
       </div>
 
       <ResultadoForm onSubmit={async (data) => {
         'use server';
         const { createResultado } = await import('@/features/resultados_subasta/actions');
-        await createResultado(data);
+        const result = await createResultado(data);
+        if (!result.success) {
+          throw new Error(result.error || 'Error al crear resultado');
+        }
       }} />
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">

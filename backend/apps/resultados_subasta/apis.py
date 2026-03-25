@@ -1,6 +1,7 @@
 import json
 from ninja import NinjaAPI
 from typing import List
+from django.conf import settings
 
 from .serializers import (
     ResultadoSubastaInput,
@@ -53,13 +54,26 @@ def list_resultados(request, status: str = None, limit: int = 100):
         queryset = queryset.filter(status=status)
     return queryset[:limit]
 
-@api.get("/{resultado_id}", response=ResultadoSubastaOutput)
+@api.get("/by-subasta/{codigo_subasta}", response=List[ResultadoSubastaOutput])
+def get_by_subasta(request, codigo_subasta: str):
+    return selectors.get_resultados_by_subasta(codigo_subasta)
+
+
+@api.post("/send-pending", response={200: dict, 400: dict})
+def send_pending_resultados(request):
+    """Manual send: transmit all pending resultados subasta to SUDEBAN."""
+    try:
+        result = services.send_pending_resultados(
+            webhook_url=getattr(settings, 'SUDEBAN_WEBHOOK_URL_API03', getattr(settings, 'SUDEBAN_WEBHOOK_URL', None))
+        )
+        return 200, result
+    except Exception as e:
+        return 400, build_error_response(500, f"Error interno: {str(e)}")
+
+
+@api.get("/{resultado_id}", response={200: ResultadoSubastaOutput, 404: dict})
 def get_resultado(request, resultado_id: int):
     resultado = selectors.get_resultado_by_id(resultado_id)
     if not resultado:
         return 404, {"error": "Resultado not found"}
     return resultado
-
-@api.get("/by-subasta/{codigo_subasta}", response=List[ResultadoSubastaOutput])
-def get_by_subasta(request, codigo_subasta: str):
-    return selectors.get_resultados_by_subasta(codigo_subasta)

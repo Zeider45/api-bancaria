@@ -47,13 +47,10 @@ export async function createOperacion(
   try {
     await api.post('/mesa-de-cambio/operaciones/create', data);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error:
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        'Error al crear la operación',
+      error: getApiErrorMessage(error, 'Error al crear la operación'),
     };
   }
 }

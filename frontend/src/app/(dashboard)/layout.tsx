@@ -1,4 +1,5 @@
 import { getServerSession } from 'next-auth';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/core/auth';
 
@@ -23,37 +24,36 @@ export default async function DashboardLayout({
                 <h1 className="text-xl font-bold text-gray-900">SIB Bridge</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <a
+                <Link
                   href="/dashboard"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Dashboard
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/dashboard/intervencion"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Intervención
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/dashboard/subasta"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Subasta Privada
-                </a>
-                <a
-<<<<<<< HEAD
+                </Link>
+                <Link
                   href="/dashboard/resultados-subasta"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Resultados Subasta
-=======
+                </Link>
+                <Link
                   href="/dashboard/mesa-de-cambio"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Mesa de Cambio
->>>>>>> 549c5be327dcc9b005c66dee4877d6bd0c04a82b
-                </a>
+                </Link>
               </div>
             </div>
           </div>

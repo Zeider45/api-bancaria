@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.core import selectors
+from apps.core.utils import extract_sudeban_error_code, decode_sudeban_error
 
 api = NinjaAPI(title="SIB API Bridge", version="1.0.0")
 
@@ -72,3 +73,69 @@ def get_config(request):
 def get_intervencion_api01_catalogs(request):
     """Return reusable API-01 lookup tables stored in core."""
     return JsonResponse(selectors.get_intervencion_api01_catalogs())
+
+
+def _parse_json_body(request):
+    try:
+        raw = request.body.decode('utf-8') if request.body else ''
+        if not raw:
+            return True, {}
+        return True, json.loads(raw)
+    except Exception:
+        return False, None
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sudeban_webhook_api01(request):
+    """Receive SUDEBAN notifications for API-01 (Intervención Cambiaria)."""
+    ok, payload = _parse_json_body(request)
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    error_code = extract_sudeban_error_code(payload)
+    decoded = decode_sudeban_error(error_code, api='API-01') if error_code is not None else []
+
+    return JsonResponse({'success': True, 'api': 'API-01', 'error_code': error_code, 'decoded_errors': decoded})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sudeban_webhook_api02(request):
+    """Receive SUDEBAN notifications for API-02 (Subasta Privada - Solicitudes)."""
+    ok, payload = _parse_json_body(request)
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    error_code = extract_sudeban_error_code(payload)
+    decoded = decode_sudeban_error(error_code, api='API-02') if error_code is not None else []
+
+    return JsonResponse({'success': True, 'api': 'API-02', 'error_code': error_code, 'decoded_errors': decoded})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sudeban_webhook_api03(request):
+    """Receive SUDEBAN notifications for API-03 (Resultados Subasta)."""
+    ok, payload = _parse_json_body(request)
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    error_code = extract_sudeban_error_code(payload)
+    decoded = decode_sudeban_error(error_code, api='API-03') if error_code is not None else []
+
+    return JsonResponse({'success': True, 'api': 'API-03', 'error_code': error_code, 'decoded_errors': decoded})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sudeban_webhook_api04(request):
+    """Receive SUDEBAN notifications for API-04 (Mesa de Cambio)."""
+    ok, payload = _parse_json_body(request)
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    error_code = extract_sudeban_error_code(payload)
+    decoded = decode_sudeban_error(error_code, api='API-04') if error_code is not None else []
+
+    return JsonResponse({'success': True, 'api': 'API-04', 'error_code': error_code, 'decoded_errors': decoded})

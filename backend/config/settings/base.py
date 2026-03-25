@@ -25,13 +25,9 @@ INSTALLED_APPS = [
     # Local apps
     'apps.core',
     'apps.intervencion_bancaria',
-<<<<<<< HEAD
     'apps.subasta_privada',
     'apps.resultados_subasta',
-=======
-    'apps.subasta_privada',  # <-- NUEVO
     'apps.operaciones_mesa_de_cambio',
->>>>>>> 549c5be327dcc9b005c66dee4877d6bd0c04a82b
 ]
 
 MIDDLEWARE = [
@@ -65,16 +61,40 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'sib_bridge'),
-        'USER': os.environ.get('POSTGRES_USER', 'sib_user'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'sib_password'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'postgres'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL and DATABASE_URL.startswith('sqlite:///'):
+    sqlite_path = DATABASE_URL.removeprefix('sqlite:///')
+
+    if sqlite_path in (':memory:', './:memory:'):
+        sqlite_name = ':memory:'
+    else:
+        # Treat as a path relative to BASE_DIR when not absolute.
+        # Examples:
+        # - sqlite:///./db.sqlite3 -> BASE_DIR/db.sqlite3
+        # - sqlite:////app/db.sqlite3 -> /app/db.sqlite3
+        if sqlite_path.startswith('/'):
+            sqlite_name = sqlite_path
+        else:
+            sqlite_name = str(BASE_DIR / sqlite_path.lstrip('./'))
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': sqlite_name,
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'sib_bridge'),
+            'USER': os.environ.get('POSTGRES_USER', 'sib_user'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'sib_password'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'postgres'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -121,4 +141,13 @@ SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeb
 SUDEBAN_USERNAME = os.environ.get('SUDEBAN_USERNAME')
 SUDEBAN_PASSWORD = os.environ.get('SUDEBAN_PASSWORD')
 SUDEBAN_WEBHOOK_URL = os.environ.get('SUDEBAN_WEBHOOK_URL')
+# Optional module-specific webhooks (fallback to SUDEBAN_WEBHOOK_URL)
+# API-01: Intervención Cambiaria
+SUDEBAN_WEBHOOK_URL_API01 = os.environ.get('SUDEBAN_WEBHOOK_URL_API01', SUDEBAN_WEBHOOK_URL)
+# API-02: Subasta Privada (solicitudes)
+SUDEBAN_WEBHOOK_URL_API02 = os.environ.get('SUDEBAN_WEBHOOK_URL_API02', SUDEBAN_WEBHOOK_URL)
+# API-03: Resultados Subasta
+SUDEBAN_WEBHOOK_URL_API03 = os.environ.get('SUDEBAN_WEBHOOK_URL_API03', SUDEBAN_WEBHOOK_URL)
+# API-04: Mesa de Cambio
+SUDEBAN_WEBHOOK_URL_API04 = os.environ.get('SUDEBAN_WEBHOOK_URL_API04', SUDEBAN_WEBHOOK_URL)
 SUDEBAN_ID_ENTIDAD_BANCARIA = os.environ.get('SUDEBAN_ID_ENTIDAD_BANCARIA')
