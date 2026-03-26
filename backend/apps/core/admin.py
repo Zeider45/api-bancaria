@@ -4,7 +4,8 @@ from apps.core.models import (
     EnteSupervisadoCatalog, 
     MecanismoCambiarioCatalog, 
     MonedaCatalog,
-    ActividadEconomicaCatalog
+    ActividadEconomicaCatalog,
+    SudebanWebhookEvent,
 )
 
 @admin.register(EnteSupervisadoCatalog)
@@ -36,3 +37,11 @@ class ActividadEconomicaCatalogAdmin(admin.ModelAdmin):
     search_fields = ('code', 'name')
     list_filter = ('is_selectable', 'is_active')
     ordering = ('sort_order', 'code')
+
+
+@admin.register(SudebanWebhookEvent)
+class SudebanWebhookEventAdmin(admin.ModelAdmin):
+    list_display = ('api', 'created_at', 'error_code', 'parse_success', 'remote_addr', 'path')
+    list_filter = ('api', 'parse_success', 'created_at')
+    search_fields = ('raw_body', 'path', 'remote_addr')
+    readonly_fields = ('created_at', 'updated_at')

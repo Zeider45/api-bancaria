@@ -11,6 +11,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.core import selectors
 from apps.core.utils import extract_sudeban_error_code, decode_sudeban_error
+from apps.core.models import SudebanWebhookEvent
 
 api = NinjaAPI(title="SIB API Bridge", version="1.0.0")
 
@@ -75,27 +76,48 @@ def get_intervencion_api01_catalogs(request):
     return JsonResponse(selectors.get_intervencion_api01_catalogs())
 
 
+def _extract_basic_headers(request) -> dict:
+    headers: dict = {}
+    for key, value in request.META.items():
+        if key.startswith('HTTP_') or key in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
+            headers[key] = value
+    return headers
+
+
 def _parse_json_body(request):
     try:
-        raw = request.body.decode('utf-8') if request.body else ''
-        if not raw:
-            return True, {}
-        return True, json.loads(raw)
+        raw = request.body.decode('utf-8', errors='replace') if request.body else ''
+        if not raw.strip():
+            return True, {}, raw
+        return True, json.loads(raw), raw
     except Exception:
-        return False, None
+        raw = request.body.decode('utf-8', errors='replace') if request.body else ''
+        return False, None, raw
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def sudeban_webhook_api01(request):
     """Receive SUDEBAN notifications for API-01 (Intervención Cambiaria)."""
-    ok, payload = _parse_json_body(request)
-    if not ok:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    ok, payload, raw = _parse_json_body(request)
 
-    error_code = extract_sudeban_error_code(payload)
+    error_code = extract_sudeban_error_code(payload if ok else raw)
     decoded = decode_sudeban_error(error_code, api='API-01') if error_code is not None else []
 
+    SudebanWebhookEvent.objects.create(
+        api=SudebanWebhookEvent.ApiName.API01,
+        path=getattr(request, 'path', '') or '',
+        remote_addr=(request.META.get('REMOTE_ADDR') or ''),
+        headers=_extract_basic_headers(request),
+        raw_body=raw,
+        payload=payload if ok else None,
+        parse_success=ok,
+        error_code=error_code,
+        decoded_errors=decoded,
+    )
+
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
     return JsonResponse({'success': True, 'api': 'API-01', 'error_code': error_code, 'decoded_errors': decoded})
 
 
@@ -103,13 +125,25 @@ def sudeban_webhook_api01(request):
 @require_http_methods(["POST"])
 def sudeban_webhook_api02(request):
     """Receive SUDEBAN notifications for API-02 (Subasta Privada - Solicitudes)."""
-    ok, payload = _parse_json_body(request)
-    if not ok:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    ok, payload, raw = _parse_json_body(request)
 
-    error_code = extract_sudeban_error_code(payload)
+    error_code = extract_sudeban_error_code(payload if ok else raw)
     decoded = decode_sudeban_error(error_code, api='API-02') if error_code is not None else []
 
+    SudebanWebhookEvent.objects.create(
+        api=SudebanWebhookEvent.ApiName.API02,
+        path=getattr(request, 'path', '') or '',
+        remote_addr=(request.META.get('REMOTE_ADDR') or ''),
+        headers=_extract_basic_headers(request),
+        raw_body=raw,
+        payload=payload if ok else None,
+        parse_success=ok,
+        error_code=error_code,
+        decoded_errors=decoded,
+    )
+
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
     return JsonResponse({'success': True, 'api': 'API-02', 'error_code': error_code, 'decoded_errors': decoded})
 
 
@@ -117,13 +151,25 @@ def sudeban_webhook_api02(request):
 @require_http_methods(["POST"])
 def sudeban_webhook_api03(request):
     """Receive SUDEBAN notifications for API-03 (Resultados Subasta)."""
-    ok, payload = _parse_json_body(request)
-    if not ok:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    ok, payload, raw = _parse_json_body(request)
 
-    error_code = extract_sudeban_error_code(payload)
+    error_code = extract_sudeban_error_code(payload if ok else raw)
     decoded = decode_sudeban_error(error_code, api='API-03') if error_code is not None else []
 
+    SudebanWebhookEvent.objects.create(
+        api=SudebanWebhookEvent.ApiName.API03,
+        path=getattr(request, 'path', '') or '',
+        remote_addr=(request.META.get('REMOTE_ADDR') or ''),
+        headers=_extract_basic_headers(request),
+        raw_body=raw,
+        payload=payload if ok else None,
+        parse_success=ok,
+        error_code=error_code,
+        decoded_errors=decoded,
+    )
+
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
     return JsonResponse({'success': True, 'api': 'API-03', 'error_code': error_code, 'decoded_errors': decoded})
 
 
@@ -131,11 +177,23 @@ def sudeban_webhook_api03(request):
 @require_http_methods(["POST"])
 def sudeban_webhook_api04(request):
     """Receive SUDEBAN notifications for API-04 (Mesa de Cambio)."""
-    ok, payload = _parse_json_body(request)
-    if not ok:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    ok, payload, raw = _parse_json_body(request)
 
-    error_code = extract_sudeban_error_code(payload)
+    error_code = extract_sudeban_error_code(payload if ok else raw)
     decoded = decode_sudeban_error(error_code, api='API-04') if error_code is not None else []
 
+    SudebanWebhookEvent.objects.create(
+        api=SudebanWebhookEvent.ApiName.API04,
+        path=getattr(request, 'path', '') or '',
+        remote_addr=(request.META.get('REMOTE_ADDR') or ''),
+        headers=_extract_basic_headers(request),
+        raw_body=raw,
+        payload=payload if ok else None,
+        parse_success=ok,
+        error_code=error_code,
+        decoded_errors=decoded,
+    )
+
+    if not ok:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
     return JsonResponse({'success': True, 'api': 'API-04', 'error_code': error_code, 'decoded_errors': decoded})

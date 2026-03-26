@@ -151,3 +151,24 @@ SUDEBAN_WEBHOOK_URL_API03 = os.environ.get('SUDEBAN_WEBHOOK_URL_API03', SUDEBAN_
 # API-04: Mesa de Cambio
 SUDEBAN_WEBHOOK_URL_API04 = os.environ.get('SUDEBAN_WEBHOOK_URL_API04', SUDEBAN_WEBHOOK_URL)
 SUDEBAN_ID_ENTIDAD_BANCARIA = os.environ.get('SUDEBAN_ID_ENTIDAD_BANCARIA')
+
+# --- Security / SSL ---
+# Django's development server does not terminate TLS. In production you should run
+# behind a reverse proxy (nginx/ingress) that provides HTTPS and sets
+# X-Forwarded-Proto=https.
+DJANGO_FORCE_SSL = os.environ.get('DJANGO_FORCE_SSL', '').strip().lower() in ('1', 'true', 'yes', 'on')
+SECURE_SSL_REDIRECT = DJANGO_FORCE_SSL or (not DEBUG)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
+CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# HSTS should only be enabled when HTTPS is actually in place.
+SECURE_HSTS_SECONDS = 31536000 if SECURE_SSL_REDIRECT else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_SSL_REDIRECT
+SECURE_HSTS_PRELOAD = SECURE_SSL_REDIRECT
+
+# Require HTTPS for outbound SUDEBAN transmission URL (recommended).
+SUDEBAN_REQUIRE_HTTPS = os.environ.get('SUDEBAN_REQUIRE_HTTPS', 'true').strip().lower() in ('1', 'true', 'yes', 'on')

@@ -49,6 +49,20 @@ class SudebanAPIClient:
 	def send_transaction(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 		url = f"{self.base_url}/{endpoint.lstrip('/')}"
 
+		# Enforce HTTPS when configured (default True in settings).
+		try:
+			from django.conf import settings
+			require_https = getattr(settings, 'SUDEBAN_REQUIRE_HTTPS', True)
+		except Exception:
+			require_https = True
+
+		if require_https and not url.lower().startswith('https://'):
+			return {
+				'success': False,
+				'error': 'insecure_url',
+				'detail': 'SUDEBAN_API_URL must use https:// when SUDEBAN_REQUIRE_HTTPS is enabled',
+			}
+
 		try:
 			response = self._request('POST', url, json=payload)
 			response.raise_for_status()

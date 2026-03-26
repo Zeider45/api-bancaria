@@ -130,3 +130,36 @@ class ClientType(models.TextChoices):
     GOVERNMENT = 'G', 'Gobierno'
     COMMUNITY = 'C', 'Comuna y Consejos Comunales'
     PERSONAL_REGISTRY = 'R', 'Registro de Firma Personal'
+
+
+class SudebanWebhookEvent(TimeStampedModel):
+    """Stores every webhook callback received from SUDEBAN.
+
+    We persist both the raw body and best-effort parsed JSON, plus extracted
+    error code and decoded messages.
+    """
+
+    class ApiName(models.TextChoices):
+        API01 = 'API-01', 'API-01'
+        API02 = 'API-02', 'API-02'
+        API03 = 'API-03', 'API-03'
+        API04 = 'API-04', 'API-04'
+
+    api = models.CharField(max_length=10, choices=ApiName.choices)
+    path = models.CharField(max_length=200, blank=True, default='')
+    remote_addr = models.CharField(max_length=80, blank=True, default='')
+
+    headers = models.JSONField(default=dict, blank=True)
+    raw_body = models.TextField(blank=True, default='')
+    payload = models.JSONField(null=True, blank=True)
+    parse_success = models.BooleanField(default=True)
+
+    error_code = models.BigIntegerField(null=True, blank=True)
+    decoded_errors = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = 'core_sudeban_webhook_events'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"{self.api} webhook @ {self.created_at:%Y-%m-%d %H:%M:%S}"
