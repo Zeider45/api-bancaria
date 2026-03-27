@@ -22,7 +22,6 @@ export interface SubastaSolicitud {
 }
 
 export interface SubastaCreateInput {
-  codigo_ente_supervisado: string;
   fecha_subasta: string;
   codigo_identificacion_subasta: string;
   fecha_solicitud_cliente: string;

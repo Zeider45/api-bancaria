@@ -18,7 +18,6 @@ export interface ResultadoSubasta {
 }
 
 export interface ResultadoCreateInput {
-  codigo_ente_supervisado: string;
   fecha_recepcion_fondos: string;
   fecha_subasta: string;
   codigo_identificacion_subasta: string;

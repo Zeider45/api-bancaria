@@ -16,7 +16,7 @@ class ResultadoSubastaInput(Schema):
     Input schema for receiving subasta results
     Based on SIB-MET-API-03 manual
     """
-    codigo_ente_supervisado: str = Field(..., min_length=4, max_length=4)
+    codigo_ente_supervisado: Optional[str] = Field(None, min_length=4, max_length=4)
     fecha_recepcion_fondos: datetime
     fecha_subasta: datetime
     codigo_identificacion_subasta: str = Field(..., max_length=50)
@@ -45,6 +45,8 @@ class ResultadoSubastaInput(Schema):
 
     @field_validator('codigo_ente_supervisado')
     def validate_ente_supervisado(cls, v: str):
+        if v is None:
+            return v
         if not core_selectors.is_valid_ente_supervisado(v):
             raise ValueError('Código Ente Supervisado inválido (no existe en el catálogo)')
         return str(v).strip()

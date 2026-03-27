@@ -18,6 +18,7 @@ from apps.core.utils import (
     format_amount,
     decode_sudeban_error,
     extract_sudeban_error_code,
+    get_sudeban_ente_supervisado,
 )
 from apps.core.models import TransactionStatus
 from apps.core import selectors as core_selectors
@@ -36,7 +37,7 @@ def create_operacion(data: OperacionMesaDeCambioInput) -> OperacionMesaDeCambio:
             contravalor = data.monto_divisa * data.tipo_cambio_bs
 
         operacion = OperacionMesaDeCambio.objects.create(
-            identificacion_ente_supervisado=data.identificacion_ente_supervisado,
+            identificacion_ente_supervisado=get_sudeban_ente_supervisado(),
             tipo_pacto=data.tipo_pacto,
             moneda=data.moneda,
             fecha_pacto=data.fecha_pacto,

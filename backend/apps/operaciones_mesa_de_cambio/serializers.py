@@ -20,7 +20,7 @@ class OperacionMesaDeCambioInput(Schema):
     """
 
     # Ente Supervisado
-    identificacion_ente_supervisado: str = Field(..., max_length=99)
+    identificacion_ente_supervisado: Optional[str] = Field(None, max_length=99)
 
     # Datos del pacto
     tipo_pacto: str = Field(..., max_length=99)
@@ -56,6 +56,8 @@ class OperacionMesaDeCambioInput(Schema):
 
     @field_validator('identificacion_ente_supervisado')
     def validate_ente_supervisado(cls, v):
+        if v is None:
+            return v
         if not core_selectors.is_valid_ente_supervisado(v):
             raise ValueError('Identificación Ente Supervisado inválida (no existe en el catálogo)')
         return str(v).strip()

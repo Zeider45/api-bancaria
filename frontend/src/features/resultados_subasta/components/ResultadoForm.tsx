@@ -114,7 +114,6 @@ export default function ResultadoForm({ onSubmit }: Props) {
     }
 
     const data: any = {
-      codigo_ente_supervisado: formData.get('codigo_ente_supervisado') as string,
       fecha_recepcion_fondos: formData.get('fecha_recepcion_fondos') as string,
       fecha_subasta: normalizedFechaSubasta,
       codigo_identificacion_subasta: codigoIdentificacionSubasta,
@@ -153,27 +152,6 @@ export default function ResultadoForm({ onSubmit }: Props) {
       {error && <div className="p-3 bg-red-50 text-red-500 rounded-md text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Ente Supervisado</label>
-          {catalogs?.entes_supervisados?.length ? (
-            <select
-              required
-              name="codigo_ente_supervisado"
-              defaultValue={catalogs.entes_supervisados[0]?.code}
-              disabled={isLoadingCatalogs}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900"
-            >
-              {catalogs.entes_supervisados.map((item) => (
-                <option key={item.code} value={item.code} disabled={!item.is_selectable}>
-                  {item.code} - {item.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input required name="codigo_ente_supervisado" type="text" maxLength={4} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />
-          )}
-        </div>
-        
         <div>
           <label className="block text-sm font-medium text-gray-700">Código Subasta (0 si tipo 8)</label>
           <input required name="codigo_identificacion_subasta" type="text" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm text-gray-900" />

@@ -4,11 +4,24 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover
+    load_dotenv = None
+
 
 def main():
     """Run administrative tasks."""
-    # If the settings module is not set in the environment, default to 'config.settings'.
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    # Load env from files for local execution (outside Docker).
+    # Docker Compose injects env vars directly (env_file: .env), so this is harmless there.
+    if load_dotenv is not None:
+        backend_dir = Path(__file__).resolve().parent
+        repo_root = backend_dir.parent
+        load_dotenv(backend_dir / '.env', override=False)
+        load_dotenv(repo_root / '.env', override=False)
+
+    # Default to development settings if not provided.
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

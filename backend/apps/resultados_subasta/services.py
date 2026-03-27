@@ -17,6 +17,7 @@ from apps.core.utils import (
     format_amount,
     decode_sudeban_error,
     extract_sudeban_error_code,
+    get_sudeban_ente_supervisado,
 )
 from apps.core.models import TransactionStatus
 from apps.core import selectors as core_selectors
@@ -32,7 +33,7 @@ def create_resultado(data: ResultadoSubastaInput) -> ResultadoSubasta:
             contravalor = data.monto_final_divisa * data.tipo_cambio_final_bs
 
         resultado = ResultadoSubasta.objects.create(
-            codigo_ente_supervisado=data.codigo_ente_supervisado,
+            codigo_ente_supervisado=get_sudeban_ente_supervisado(),
             fecha_recepcion_fondos=data.fecha_recepcion_fondos,
             fecha_subasta=data.fecha_subasta,
             codigo_identificacion_subasta=data.codigo_identificacion_subasta,

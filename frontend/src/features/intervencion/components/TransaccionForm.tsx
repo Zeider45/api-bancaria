@@ -16,7 +16,6 @@ const optionalNumber = z.preprocess(
 );
 
 const transaccionSchema = z.object({
-  codigo_ente_supervisado: z.string().length(4, 'Debe tener 4 caracteres'),
   tipo_intervencion: z.string().min(1, 'Requerido'),
   fecha_intervencion: z.string().min(1, 'Requerido'),
   codigo_identificacion_intervencion: z.string().min(1, 'Requerido').max(10, 'Máximo 10 caracteres'),
@@ -58,7 +57,6 @@ export function TransaccionForm() {
 
   const defaultValues = useMemo<TransaccionFormData>(
     () => ({
-      codigo_ente_supervisado: '0108',
       tipo_intervencion: '1',
       fecha_intervencion: '',
       codigo_identificacion_intervencion: '',
@@ -128,7 +126,6 @@ export function TransaccionForm() {
 
     startTransition(async () => {
       const payload: IntervencionCreateInput = {
-        codigo_ente_supervisado: data.codigo_ente_supervisado,
         tipo_intervencion: data.tipo_intervencion,
         fecha_intervencion: data.fecha_intervencion,
         codigo_identificacion_intervencion: data.codigo_identificacion_intervencion,
@@ -174,20 +171,6 @@ export function TransaccionForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Código ente</label>
-            {catalogs?.entes_supervisados?.length ? (
-              <select {...register('codigo_ente_supervisado')} className={inputClassName} disabled={isLoadingCatalogs}>
-                {catalogs.entes_supervisados.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.code} - {item.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input {...register('codigo_ente_supervisado')} className={inputClassName} />
-            )}
-          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Tipo intervención</label>
             {catalogs?.mecanismos_cambiarios?.length ? (

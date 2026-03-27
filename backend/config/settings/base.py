@@ -2,6 +2,11 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+try:
+    import environ
+except Exception:  # pragma: no cover
+    environ = None
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-default-dev-key-change-in-production')
@@ -84,6 +89,14 @@ if DATABASE_URL and DATABASE_URL.startswith('sqlite:///'):
             'NAME': sqlite_name,
         }
     }
+elif DATABASE_URL:
+    if environ is None:
+        raise RuntimeError('DATABASE_URL está configurado pero falta django-environ')
+
+    env = environ.Env()
+    DATABASES = {
+        'default': env.db('DATABASE_URL'),
+    }
 else:
     DATABASES = {
         'default': {
@@ -135,6 +148,18 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_DEFAULT_QUEUE = os.environ.get('CELERY_TASK_DEFAULT_QUEUE', 'default')
+CELERY_RESULT_EXPIRES = int(os.environ.get('CELERY_RESULT_EXPIRES', str(60 * 60 * 24)))  # 24h
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', '').strip().lower() in ('1', 'true', 'yes', 'on')
+CELERY_TASK_EAGER_PROPAGATES = os.environ.get('CELERY_TASK_EAGER_PROPAGATES', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+
+# Redis transport tuning (safe defaults)
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': int(os.environ.get('CELERY_VISIBILITY_TIMEOUT', str(60 * 60))),
+}
 
 # SUDEBAN configuration (shared)
 SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeban.gob.ve/transmission')
@@ -157,8 +182,17 @@ SUDEBAN_ID_ENTIDAD_BANCARIA = os.environ.get('SUDEBAN_ID_ENTIDAD_BANCARIA')
 # behind a reverse proxy (nginx/ingress) that provides HTTPS and sets
 # X-Forwarded-Proto=https.
 DJANGO_FORCE_SSL = os.environ.get('DJANGO_FORCE_SSL', '').strip().lower() in ('1', 'true', 'yes', 'on')
-SECURE_SSL_REDIRECT = DJANGO_FORCE_SSL or (not DEBUG)
+SECURE_SSL_REDIRECT = DJANGO_FORCE_SSL
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Allow internal service-to-service communication over HTTP.
+# The frontend and internal services consume the internal API under /api/internal/*.
+# When DJANGO_FORCE_SSL=true, Django would otherwise redirect HTTP->HTTPS and break
+# calls to the backend container (which serves HTTP inside the docker network).
+SECURE_REDIRECT_EXEMPT = [
+    r'^/api/internal/',
+    r'^api/internal/',
+]
 
 SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
 CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT

@@ -1,0 +1,70 @@
+# Copia este archivo a `.env` (NO se comitea; está en .gitignore)
+#
+#   Windows (PowerShell): Copy-Item .env.example .env
+#   Linux/macOS:         cp .env.example .env
+#
+# Luego: docker compose up --build
+
+# -------------------------
+# Base de datos (Postgres)
+# -------------------------
+POSTGRES_DB=sib_bridge
+POSTGRES_USER=sib_user
+POSTGRES_PASSWORD=sib_password
+
+# Usado por Django cuando no se usa sqlite
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+
+# Para el backend en Docker, el host es el nombre del servicio: `postgres`
+DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
+
+# -------------------------
+# Django
+# -------------------------
+DJANGO_SETTINGS_MODULE=config.settings.development
+# En development puede ser cualquier string; en producción debe ser fuerte
+DJANGO_SECRET_KEY=dev-insecure-change-me
+ALLOWED_HOSTS=*
+
+# SSL/HTTPS (en dev normalmente debe ser false)
+DJANGO_FORCE_SSL=false
+
+# -------------------------
+# Redis / Celery
+# -------------------------
+REDIS_URL=redis://redis:6379/0
+# dev-only: ejecuta tasks síncronas (sin worker/redis real)
+CELERY_TASK_ALWAYS_EAGER=false
+CELERY_TASK_EAGER_PROPAGATES=true
+
+# -------------------------
+# SUDEBAN (ajusta según tu entorno)
+# -------------------------
+SUDEBAN_API_URL=https://transacciones.sudeban.gob.ve/transmission
+SUDEBAN_USERNAME=
+SUDEBAN_PASSWORD=
+
+# Base webhook (el backend expone endpoints internos)
+SUDEBAN_WEBHOOK_URL=http://backend:8000/api/internal/v1/core/webhooks
+# Opcionales por API
+# SUDEBAN_WEBHOOK_URL_API01=
+# SUDEBAN_WEBHOOK_URL_API02=
+# SUDEBAN_WEBHOOK_URL_API03=
+# SUDEBAN_WEBHOOK_URL_API04=
+
+# Fuente de verdad del ente supervisado (NO se edita desde UI/payload)
+SUDEBAN_ID_ENTIDAD_BANCARIA=0106
+SUDEBAN_REQUIRE_HTTPS=false
+
+# -------------------------
+# Frontend (Next.js / NextAuth)
+# -------------------------
+# Para browser (host de tu máquina)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+# Para llamadas server-side desde el contenedor
+INTERNAL_API_URL=http://backend:8000
+
+NEXTAUTH_URL=http://localhost:3000
+# En dev puede ser cualquier string; en prod debe ser fuerte
+NEXTAUTH_SECRET=dev-insecure-nextauth-secret

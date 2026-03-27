@@ -16,7 +16,6 @@ const account20Digits = z
   .regex(/^\d{20}$/, 'Debe tener exactamente 20 dígitos numéricos');
 
 const operacionSchema = z.object({
-  identificacion_ente_supervisado: z.string().min(1, 'Requerido').max(99),
   tipo_pacto: z.string().min(1, 'Requerido').max(99),
   moneda: z.coerce.number().int().positive(),
   fecha_pacto: z.string().min(1, 'Requerido'),
@@ -96,7 +95,6 @@ export function OperacionForm() {
 
   const defaultValues = useMemo<OperacionFormData>(
     () => ({
-      identificacion_ente_supervisado: '0108',
       tipo_pacto: '',
       moneda: 840,
       fecha_pacto: getLocalDateTime(new Date(Date.now() + 5 * 60 * 1000)),
@@ -167,7 +165,6 @@ export function OperacionForm() {
 
     startTransition(async () => {
       const payload: OperacionMesaDeCambioInput = {
-        identificacion_ente_supervisado: data.identificacion_ente_supervisado,
         tipo_pacto: data.tipo_pacto,
         moneda: data.moneda,
         fecha_pacto: toUtcIsoDateTime(data.fecha_pacto),
@@ -225,27 +222,6 @@ export function OperacionForm() {
             Datos del pacto
           </h3>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Identificación ente supervisado
-              </label>
-              {catalogs?.entes_supervisados?.length ? (
-                <select
-                  {...register('identificacion_ente_supervisado')}
-                  className={inputClassName}
-                  disabled={isLoadingCatalogs}
-                >
-                  {catalogs.entes_supervisados.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.code} - {item.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input {...register('identificacion_ente_supervisado')} className={inputClassName} />
-              )}
-              <FieldError message={errors.identificacion_ente_supervisado?.message} />
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Tipo de pacto</label>
               <input {...register('tipo_pacto')} className={inputClassName} />

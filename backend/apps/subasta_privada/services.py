@@ -18,6 +18,7 @@ from apps.core.utils import (
     format_amount,
     decode_sudeban_error,
     extract_sudeban_error_code,
+    get_sudeban_ente_supervisado,
 )
 from apps.core.models import TransactionStatus
 
@@ -41,7 +42,7 @@ def create_solicitud(data: SubastaSolicitudInput) -> SubastaSolicitud:
             contravalor = data.monto_divisa * data.tipo_cambio_bs
         
         solicitud = SubastaSolicitud.objects.create(
-            codigo_ente_supervisado=data.codigo_ente_supervisado,
+            codigo_ente_supervisado=get_sudeban_ente_supervisado(),
             fecha_subasta=data.fecha_subasta,
             codigo_identificacion_subasta=data.codigo_identificacion_subasta,
             fecha_solicitud_cliente=data.fecha_solicitud_cliente,

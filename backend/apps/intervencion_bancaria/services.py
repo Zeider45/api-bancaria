@@ -18,6 +18,7 @@ from apps.core.utils import (
     format_amount,
     decode_sudeban_error,
     extract_sudeban_error_code,
+    get_sudeban_ente_supervisado,
 )
 from apps.core.models import TransactionStatus
 
@@ -41,7 +42,7 @@ def create_transaccion(data: IntervencionTransaccionInput) -> IntervencionTransa
             contravalor = data.monto_divisa * data.tipo_cambio_bs
         
         transaccion = IntervencionTransaccion.objects.create(
-            codigo_ente_supervisado=data.codigo_ente_supervisado,
+            codigo_ente_supervisado=get_sudeban_ente_supervisado(),
             tipo_intervencion=data.tipo_intervencion,
             fecha_intervencion=data.fecha_intervencion,
             codigo_identificacion_intervencion=data.codigo_identificacion_intervencion,

@@ -78,6 +78,25 @@ def build_error_response(error_code: int, detail: str) -> Dict[str, Any]:
     }
 
 
+def get_sudeban_ente_supervisado() -> str:
+    """Return the supervised entity code from settings.
+
+    This is the single source of truth for the 'ente supervisado' value.
+    """
+    from django.conf import settings
+    from apps.core import selectors as core_selectors
+
+    ente = getattr(settings, 'SUDEBAN_ID_ENTIDAD_BANCARIA', None)
+    if ente is None or str(ente).strip() == '':
+        raise ValueError('SUDEBAN_ID_ENTIDAD_BANCARIA no está configurado')
+
+    ente_str = str(ente).strip()
+    if not core_selectors.is_valid_ente_supervisado(ente_str):
+        raise ValueError('SUDEBAN_ID_ENTIDAD_BANCARIA inválido (no existe en el catálogo)')
+
+    return ente_str
+
+
 _SUDEBAN_ERROR_MESSAGES_DEFAULT: Dict[int, str] = {
         1: "Validación del campo 'Moneda'",
         2: "Validación de los campos: 'Tipo de Pacto', 'Tipo Operación'",

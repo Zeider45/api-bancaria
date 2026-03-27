@@ -18,7 +18,6 @@ export interface OperacionMesaDeCambio {
 }
 
 export interface OperacionMesaDeCambioInput {
-  identificacion_ente_supervisado: string;
   tipo_pacto: string;
   moneda: number;
   fecha_pacto: string;

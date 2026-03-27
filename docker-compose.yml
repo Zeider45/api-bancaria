@@ -2,10 +2,8 @@ services:
   postgres:
     image: postgres:15
     container_name: sib_postgres
-    environment:
-      POSTGRES_DB: sib_bridge
-      POSTGRES_USER: sib_user
-      POSTGRES_PASSWORD: sib_password
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:
@@ -29,10 +27,8 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
-      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
     depends_on:
       - postgres
       - redis
@@ -45,10 +41,8 @@ services:
     command: sh -c "python manage.py migrate && celery -A config.celery worker --loglevel=info"
     volumes:
       - ./backend:/app
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
-      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
     depends_on:
       - backend
       - redis
@@ -62,10 +56,8 @@ services:
     command: sh -c "python manage.py migrate && celery -A config.celery beat --loglevel=info"
     volumes:
       - ./backend:/app
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgresql://sib_user:sib_password@postgres:5432/sib_bridge
-      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
     depends_on:
       - celery_worker
       - redis
@@ -74,15 +66,17 @@ services:
       - sib_network
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
     container_name: sib_frontend
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - INTERNAL_API_URL=http://backend:8000
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=your-secure-nextauth-secret-key-change-this-in-prod
+    env_file:
+      - .env
     volumes:
       - ./frontend:/app
       - /app/node_modules

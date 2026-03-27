@@ -22,7 +22,6 @@ export interface IntervencionTransaccion {
 }
 
 export interface IntervencionCreateInput {
-  codigo_ente_supervisado: string;
   tipo_intervencion: string;
   fecha_intervencion: string;
   codigo_identificacion_intervencion: string;

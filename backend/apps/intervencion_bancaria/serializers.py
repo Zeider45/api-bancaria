@@ -14,7 +14,7 @@ class IntervencionTransaccionInput(Schema):
     """
     Input schema for receiving transactions from internal systems
     """
-    codigo_ente_supervisado: str = Field(..., min_length=4, max_length=4)
+    codigo_ente_supervisado: Optional[str] = Field(None, min_length=4, max_length=4)
     tipo_intervencion: str
     fecha_intervencion: datetime
     codigo_identificacion_intervencion: str = Field(..., max_length=10)
@@ -35,6 +35,8 @@ class IntervencionTransaccionInput(Schema):
 
     @field_validator('codigo_ente_supervisado')
     def validate_codigo_ente_supervisado(cls, v):
+        if v is None:
+            return v
         if not selectors.is_valid_ente_supervisado(v):
             raise ValueError('Código de ente supervisado inválido (T001)')
         return v

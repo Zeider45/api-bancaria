@@ -16,7 +16,7 @@ class SubastaSolicitudInput(Schema):
     Based on SIB-MET-API-02 manual
     """
     # DATOS SUBASTA PRIVADA
-    codigo_ente_supervisado: str = Field(..., min_length=4, max_length=4)
+    codigo_ente_supervisado: Optional[str] = Field(None, min_length=4, max_length=4)
     fecha_subasta: datetime
     codigo_identificacion_subasta: str = Field(..., max_length=50)
     

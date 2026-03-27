@@ -40,3 +40,8 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# --- Celery (development) ---
+# In dev you may want to run tasks synchronously without worker/redis.
+# Set CELERY_TASK_ALWAYS_EAGER=true to enable that mode.
+CELERY_TASK_EAGER_PROPAGATES = True
