@@ -8,6 +8,7 @@ class SudebanTransaccionSchema(Schema):
     """
     Exact schema for SUDEBAN API-01 as per manual
     """
+    codigoOperacion: str
     idTipIntervencion: str
     fechalIntervencion: str  # Format: AAAA-MM-DDTHH:MM:SS.sss
     codigolIntervencion: str

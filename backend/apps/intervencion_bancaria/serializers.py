@@ -4,7 +4,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
 from apps.core import selectors
-from apps.core.utils import parse_rif, validate_rif_range
+from apps.core.utils import (
+    is_valid_identificacion_cliente,
+    validate_nombre_cliente as validate_nombre_cliente_util,
+)
 
 
 DecimalField = condecimal(max_digits=20, decimal_places=4)
@@ -14,6 +17,7 @@ class IntervencionTransaccionInput(Schema):
     """
     Input schema for receiving transactions from internal systems
     """
+    codigo_operacion: str = Field(..., max_length=40)  # API-01: identificación única de la operación
     codigo_ente_supervisado: Optional[str] = Field(None, min_length=4, max_length=4)
     tipo_intervencion: str
     fecha_intervencion: datetime
@@ -55,17 +59,25 @@ class IntervencionTransaccionInput(Schema):
             raise ValueError('Fecha operación no puede ser mayor a fecha intervención')
         return self
     
+    @field_validator('codigo_operacion', 'codigo_identificacion_intervencion')
+    def validate_texto_sin_simbolos(cls, v):
+        """Código de la Operación / Identificación: distinto de 0/vacío/Null y
+        sin caracteres ni símbolos no permitidos (API-01)."""
+        return validate_nombre_cliente_util(v)
+
     @field_validator('identificacion_cliente')
     def validate_rif(cls, v):
-        """Validate RIF format and ranges"""
-        rif_type, rif_number = parse_rif(v)
-        if not rif_type:
-            raise ValueError('Formato RIF inválido')
-        
-        if not validate_rif_range(rif_type, rif_number):
-            raise ValueError('Número de RIF fuera de rango permitido')
-        
-        return v.upper()
+        """Validate client identification (RIF SENIAT or identity document)."""
+        if not is_valid_identificacion_cliente(v):
+            raise ValueError(
+                'Identificación de cliente inválida (verifique el prefijo, el RIF '
+                'emitido por SENIAT o el documento de identificación)'
+            )
+        return v.strip().upper()
+
+    @field_validator('nombre_cliente')
+    def validate_nombre_cliente(cls, v):
+        return validate_nombre_cliente_util(v)
     
     @field_validator('moneda')
     def validate_moneda(cls, v):
