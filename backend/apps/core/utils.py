@@ -319,3 +319,75 @@ def extract_sudeban_error_code(detail: Any) -> Optional[int]:
         return None
 
     return _search(detail)
+
+
+def extract_sudeban_error_message(detail: Any) -> Optional[str]:
+    """Best-effort extraction of a human-readable SUDEBAN error message.
+
+    Looks for common keys like ``errorMessage`` (and variants) in strings,
+    dicts or nested dicts.
+    """
+
+    def _search(obj: Any, depth: int = 0) -> Optional[str]:
+        if depth > 3:
+            return None
+        if isinstance(obj, dict):
+            for key in (
+                'errorMessage',
+                'error_message',
+                'mensajeError',
+                'mensaje_error',
+                'mensaje',
+                'message',
+            ):
+                value = obj.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+
+            for value in obj.values():
+                found = _search(value, depth + 1)
+                if found is not None:
+                    return found
+
+        if isinstance(obj, list):
+            for item in obj[:10]:
+                found = _search(item, depth + 1)
+                if found is not None:
+                    return found
+
+        if isinstance(obj, str):
+            try:
+                parsed = json.loads(obj)
+            except Exception:
+                return None
+            return _search(parsed, depth + 1)
+
+        return None
+
+    return _search(detail)
+
+
+# Código HTTP que SUDEBAN usa en el webhook para errores de formato a nivel de
+# campos (longitudes, tipos de datos, valores fuera de rango). Es independiente
+# del catálogo de errores de negocio (bitmask) y no debe decodificarse como tal.
+SUDEBAN_FORMAT_ERROR_CODE = 400
+
+
+def decode_sudeban_webhook_error(error_code: Optional[int], api: Optional[str] = None) -> list:
+    """Decode a webhook ``errorCode`` into human-friendly messages.
+
+    A value of 400 represents a field-format error (not a business-rule
+    bitmask), so it is reported as such. Any other value is decoded against the
+    business-rule catalog via :func:`decode_sudeban_error`.
+    """
+
+    if error_code is None:
+        return []
+    try:
+        code = int(error_code)
+    except (TypeError, ValueError):
+        return [f"Error desconocido: {error_code}"]
+
+    if code == SUDEBAN_FORMAT_ERROR_CODE:
+        return ["Error de formato en los datos transmitidos (errorCode 400)"]
+    return decode_sudeban_error(code, api=api)

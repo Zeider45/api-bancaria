@@ -35,6 +35,12 @@ def create_transaccion(data: IntervencionTransaccionInput) -> IntervencionTransa
             codigo_identificacion_intervencion=data.codigo_identificacion_intervencion
         ).exists():
             raise ValueError(f"Transaction with code {data.codigo_identificacion_intervencion} already exists")
+
+        # API-01: el Código de la Operación es único (garantiza la trazabilidad)
+        if data.codigo_operacion and IntervencionTransaccion.objects.filter(
+            codigo_operacion=data.codigo_operacion
+        ).exists():
+            raise ValueError(f"Ya existe una operación con codigo_operacion {data.codigo_operacion}")
         
         # Calculate contravalor if not provided
         contravalor = data.contravalor_bs

@@ -31,6 +31,12 @@ def create_operacion(data: OperacionMesaDeCambioInput) -> OperacionMesaDeCambio:
     Create a new mesa de cambio transaction from internal data.
     """
     with db_transaction.atomic():
+        # API-04: el Código de la Operación es único (garantiza la trazabilidad)
+        if data.codigo_operacion and OperacionMesaDeCambio.objects.filter(
+            codigo_operacion=data.codigo_operacion
+        ).exists():
+            raise ValueError(f"Ya existe una operación con codigo_operacion {data.codigo_operacion}")
+
         # Calculate contravalor if not provided
         contravalor = data.contravalor_bs
         if not contravalor and data.monto_divisa and data.tipo_cambio_bs:
