@@ -8,6 +8,7 @@ class SudebanMesaDeCambioTransaccionSchema(Schema):
     Field names are intentionally kept exactly as required by SUDEBAN.
     """
 
+    codigoOperacion: str
     idTipoPacto: str
     idMoneda: int
     fechaPacto: str  # Format: AAAA-MM-DDTHH:MM:SS.sss

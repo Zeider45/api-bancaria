@@ -85,9 +85,9 @@ def validate_solicitud_for_sudeban(solicitud: SubastaSolicitud) -> tuple[bool, l
     if solicitud.tipo_cambio_bs <= 0:
         errors.append("Tipo cambio debe ser mayor que 0")
     
-    # Rule 5: fecha_solicitud_cliente must equal fecha_subasta
-    if solicitud.fecha_solicitud_cliente.date() != solicitud.fecha_subasta.date():
-        errors.append("fecha_solicitud_cliente debe ser igual a fecha_subasta")
+    # Rule 5: fecha_solicitud_cliente must be <= fecha_subasta (API-02 update)
+    if solicitud.fecha_solicitud_cliente.date() > solicitud.fecha_subasta.date():
+        errors.append("fecha_solicitud_cliente debe ser menor o igual a fecha_subasta")
     
     # Rule 6: Account validations (always required for subasta)
     if len(solicitud.codigo_cuenta_moneda_nacional) != 20:
@@ -96,8 +96,8 @@ def validate_solicitud_for_sudeban(solicitud: SubastaSolicitud) -> tuple[bool, l
     if solicitud.tipo_cuenta_moneda_nacional not in [8, 9, 10]:
         errors.append("Tipo cuenta nacional debe ser 8, 9 o 10")
     
-    if len(solicitud.codigo_cuenta_moneda_extranjera) != 20:
-        errors.append("Cuenta extranjera debe tener 20 dígitos")
+    if len(solicitud.codigo_cuenta_moneda_extranjera) > 20:
+        errors.append("Cuenta extranjera debe tener máximo 20 dígitos")
     
     if solicitud.tipo_cuenta_moneda_extranjera not in [31, 32]:
         errors.append("Tipo cuenta extranjera debe ser 31 o 32")

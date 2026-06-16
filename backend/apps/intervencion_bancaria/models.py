@@ -9,6 +9,12 @@ class IntervencionTransaccion(BaseModel):
     """
     
     # Intervention data
+    codigo_operacion = models.CharField(
+        max_length=40,
+        default='',
+        blank=True,
+        help_text="Código de identificación único de la operación (API-01)"
+    )
     codigo_ente_supervisado = models.CharField(max_length=4)
     tipo_intervencion = models.CharField(max_length=10)  # 1, 3, 7, etc.
     fecha_intervencion = models.DateTimeField()

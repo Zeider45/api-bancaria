@@ -37,6 +37,7 @@ def create_operacion(data: OperacionMesaDeCambioInput) -> OperacionMesaDeCambio:
             contravalor = data.monto_divisa * data.tipo_cambio_bs
 
         operacion = OperacionMesaDeCambio.objects.create(
+            codigo_operacion=data.codigo_operacion,
             identificacion_ente_supervisado=get_sudeban_ente_supervisado(),
             tipo_pacto=data.tipo_pacto,
             moneda=data.moneda,
@@ -96,19 +97,19 @@ def validate_operacion_for_sudeban(operacion: OperacionMesaDeCambio) -> Tuple[bo
     if operacion.tipo_cuenta_moneda_nacional_cliente_oferente not in (8, 9, 10):
         errors.append("Tipo Cuenta Moneda Nacional Cliente Oferente debe ser 8, 9 o 10")
 
-    # Rule 6: Cuenta extranjera oferente must be 20 digits
+    # Rule 6: Cuenta extranjera oferente debe ser numérica de longitud <= 20 (API-04)
     if not operacion.codigo_cuenta_moneda_extranjera_oferente.isdigit() or \
-            len(operacion.codigo_cuenta_moneda_extranjera_oferente) != 20:
-        errors.append("Código Cuenta Moneda Extranjera Oferente debe ser un número de 20 dígitos")
+            not (1 <= len(operacion.codigo_cuenta_moneda_extranjera_oferente) <= 20):
+        errors.append("Código Cuenta Moneda Extranjera Oferente debe ser un número de máximo 20 dígitos")
 
     # Rule 7: Tipo cuenta extranjera oferente must be 31 or 32
     if operacion.tipo_cuenta_moneda_extranjera_cliente_oferente not in (31, 32):
         errors.append("Tipo Cuenta Moneda Extranjera Cliente Oferente debe ser 31 o 32")
 
-    # Rule 8: Cuenta nacional demandante must be 20 digits
+    # Rule 8: Cuenta nacional demandante debe ser numérica de longitud <= 20 (API-04)
     if not operacion.codigo_cuenta_moneda_nacional_demandante.isdigit() or \
-            len(operacion.codigo_cuenta_moneda_nacional_demandante) != 20:
-        errors.append("Código Cuenta Moneda Nacional Demandante debe ser un número de 20 dígitos")
+            not (1 <= len(operacion.codigo_cuenta_moneda_nacional_demandante) <= 20):
+        errors.append("Código Cuenta Moneda Nacional Demandante debe ser un número de máximo 20 dígitos")
 
     # Rule 9: Tipo cuenta nacional demandante (Destino) must be a positive code
     if operacion.tipo_cuenta_moneda_nacional_cliente_demandante is None or operacion.tipo_cuenta_moneda_nacional_cliente_demandante <= 0:
@@ -162,6 +163,7 @@ def prepare_for_sudeban(operacion: OperacionMesaDeCambio) -> SudebanMesaDeCambio
     Prepare a mesa de cambio transaction in the exact SUDEBAN format.
     """
     return SudebanMesaDeCambioTransaccionSchema(
+        codigoOperacion=operacion.codigo_operacion,
         idTipoPacto=operacion.tipo_pacto,
         idMoneda=int(str(operacion.moneda).strip()),
         fechaPacto=format_date_for_sudeban(operacion.fecha_pacto),

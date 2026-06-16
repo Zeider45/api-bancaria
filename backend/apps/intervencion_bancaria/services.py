@@ -42,6 +42,7 @@ def create_transaccion(data: IntervencionTransaccionInput) -> IntervencionTransa
             contravalor = data.monto_divisa * data.tipo_cambio_bs
         
         transaccion = IntervencionTransaccion.objects.create(
+            codigo_operacion=data.codigo_operacion,
             codigo_ente_supervisado=get_sudeban_ente_supervisado(),
             tipo_intervencion=data.tipo_intervencion,
             fecha_intervencion=data.fecha_intervencion,
@@ -92,8 +93,9 @@ def validate_transaction_for_sudeban(transaccion: IntervencionTransaccion) -> tu
         # Must have valid accounts
         if len(transaccion.codigo_cuenta_moneda_nacional) != 20:
             errors.append("Cuenta nacional debe tener 20 dígitos para ventas")
-        if len(transaccion.codigo_cuenta_moneda_extranjera) != 20:
-            errors.append("Cuenta extranjera debe tener 20 dígitos para ventas")
+        # API-01: la longitud de la cuenta extranjera es menor o igual a 20
+        if len(transaccion.codigo_cuenta_moneda_extranjera) > 20:
+            errors.append("Cuenta extranjera debe tener máximo 20 dígitos para ventas")
         if transaccion.tipo_cuenta_moneda_nacional not in [8, 9, 10]:
             errors.append("Tipo cuenta nacional debe ser 8, 9 o 10 para ventas")
         if transaccion.tipo_cuenta_moneda_extranjera not in [31, 32]:
@@ -102,8 +104,14 @@ def validate_transaction_for_sudeban(transaccion: IntervencionTransaccion) -> tu
         # Not a sale, accounts should be '0 - No Aplica'
         if transaccion.codigo_cuenta_moneda_nacional != '0':
             errors.append("Para este tipo de intervención, cuenta nacional debe ser 0")
+        # API-01: tipo de cuenta nacional debe ser 0 (No Aplica) para no-ventas
+        if transaccion.tipo_cuenta_moneda_nacional != 0:
+            errors.append("Para este tipo de intervención, tipo cuenta nacional debe ser 0 (No Aplica)")
         if transaccion.codigo_cuenta_moneda_extranjera != '0':
             errors.append("Para este tipo de intervención, cuenta extranjera debe ser 0")
+        # API-01: tipo de cuenta extranjera debe ser 0 (No Aplica) para no-ventas
+        if transaccion.tipo_cuenta_moneda_extranjera != 0:
+            errors.append("Para este tipo de intervención, tipo cuenta extranjera debe ser 0 (No Aplica)")
     
     # Rule 6: Destino fondos validation
     if transaccion.tipo_intervencion in venta_interventions:
@@ -125,6 +133,7 @@ def prepare_for_sudeban(transaccion: IntervencionTransaccion) -> SudebanTransacc
     Prepare a transaction for SUDEBAN format
     """
     return SudebanTransaccionSchema(
+        codigoOperacion=transaccion.codigo_operacion,
         idTipIntervencion=transaccion.tipo_intervencion,
         fechalIntervencion=format_date_for_sudeban(transaccion.fecha_intervencion),
         codigolIntervencion=transaccion.codigo_identificacion_intervencion,

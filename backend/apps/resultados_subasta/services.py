@@ -1,6 +1,7 @@
 import logging
 import json
 from collections import defaultdict
+from decimal import Decimal
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 
@@ -97,16 +98,22 @@ def validate_resultado_for_sudeban(resultado: ResultadoSubasta) -> Tuple[bool, L
     elif resultado.tipo_operacion == 9:
         if str(resultado.codigo_identificacion_subasta) == '0':
             errors.append('Si tipo_operacion es 9, codigo_identificacion_subasta no debe ser "0"')
-        if resultado.fecha_solicitud_cliente.date() != resultado.fecha_subasta.date():
-            errors.append('Si tipo_operacion es 9, fecha_solicitud_cliente debe ser igual a fecha_subasta')
+        if resultado.fecha_solicitud_cliente.date() > resultado.fecha_subasta.date():
+            errors.append('Si tipo_operacion es 9, fecha_solicitud_cliente debe ser menor o igual a fecha_subasta')
     else:
         errors.append('tipo_operacion debe ser 8 o 9')
 
     if resultado.estatus_solicitud_cliente == 'SA':
         if resultado.monto_final_divisa <= 0:
             errors.append('Si es SA, monto_final_divisa debe ser mayor a 0')
-        if resultado.tipo_cambio_final_bs <= 0:
-            errors.append('Si es SA, tipo_cambio_final_bs debe ser mayor a 0')
+        # Tipo Cambio Final Bs (API-03 - Fondo N°1 y N°3):
+        #  - Tipo Operación 8 (Recepción de Fondos del BCV): exactamente Bs 1.0000
+        #  - Tipo Operación 9 (Ventas por Subasta Privada) y SA: mayor a cero
+        if resultado.tipo_operacion == 8:
+            if resultado.tipo_cambio_final_bs != Decimal('1.0000'):
+                errors.append('Si tipo_operacion es 8, tipo_cambio_final_bs debe ser igual a Bs 1.0000')
+        elif resultado.tipo_cambio_final_bs <= 0:
+            errors.append('Si es SA y tipo_operacion 9, tipo_cambio_final_bs debe ser mayor a 0')
         if resultado.destino_fondos == 0:
             errors.append('Si es SA, destino_fondos no puede ser 0')
         elif not core_selectors.is_valid_destino_fondos(resultado.destino_fondos):
@@ -119,8 +126,9 @@ def validate_resultado_for_sudeban(resultado: ResultadoSubasta) -> Tuple[bool, L
     elif resultado.estatus_solicitud_cliente == 'SNA':
         if resultado.monto_final_divisa != 0:
             errors.append('Si es SNA, monto_final_divisa debe ser 0')
-        if resultado.tipo_cambio_final_bs != 0:
-            errors.append('Si es SNA, tipo_cambio_final_bs debe ser 0')
+        # Tipo Cambio Final Bs (API-03 - Fondo N°2): SNA con Tipo Operación 9 => igual a cero
+        if resultado.tipo_operacion == 9 and resultado.tipo_cambio_final_bs != 0:
+            errors.append('Si es SNA y tipo_operacion 9, tipo_cambio_final_bs debe ser 0')
         if resultado.destino_fondos != 0:
             errors.append('Si es SNA, destino_fondos debe ser 0')
         if resultado.medio_pago != 0:

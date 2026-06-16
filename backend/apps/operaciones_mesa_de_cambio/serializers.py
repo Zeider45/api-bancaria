@@ -5,19 +5,29 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
 from django.utils import timezone
-from apps.core.utils import parse_rif
+from apps.core.utils import (
+    is_valid_identificacion_cliente,
+    validate_nombre_cliente as validate_nombre_cliente_util,
+)
 from apps.core import selectors as core_selectors
 
 
 DecimalField = condecimal(max_digits=20, decimal_places=4)
 
+# Cuenta con longitud exacta de 20 dígitos.
 VALID_ACCOUNT_PREFIXES = re.compile(r'^\d{20}$')
+# Cuenta con longitud menor o igual a 20 dígitos (API-04: cuenta extranjera
+# oferente y cuenta nacional demandante).
+VALID_ACCOUNT_LE20 = re.compile(r'^\d{1,20}$')
 
 
 class OperacionMesaDeCambioInput(Schema):
     """
     Input schema for receiving mesa de cambio transactions from internal systems.
     """
+
+    # Identificación de la operación (API-04)
+    codigo_operacion: str = Field(..., max_length=40)
 
     # Ente Supervisado
     identificacion_ente_supervisado: Optional[str] = Field(None, max_length=99)
@@ -53,6 +63,18 @@ class OperacionMesaDeCambioInput(Schema):
     tipo_cuenta_moneda_extranjera_cliente_demandante: int
     destino_fondos: int
     medio_pago_demandante: int
+
+    @field_validator('codigo_operacion')
+    def validate_codigo_operacion(cls, v):
+        """Código de la Operación: distinto de 0/vacío/Null y sin símbolos no
+        permitidos (API-04)."""
+        return validate_nombre_cliente_util(v)
+
+    @field_validator('nombre_cliente_oferente', 'nombre_cliente_demandante')
+    def validate_nombres_clientes(cls, v):
+        """Nombre Cliente Oferente/Demandante: distinto de 0/vacío/Null y sin
+        caracteres ni símbolos no permitidos (API-04)."""
+        return validate_nombre_cliente_util(v)
 
     @field_validator('identificacion_ente_supervisado')
     def validate_ente_supervisado(cls, v):
@@ -126,25 +148,25 @@ class OperacionMesaDeCambioInput(Schema):
 
     @field_validator('identificacion_cliente_oferente')
     def validate_id_oferente(cls, v):
-        """Validate identification format: prefix (V,E,P,R,C,G,J) followed by digits."""
-        rif_type, _ = parse_rif(v)
-        if not rif_type:
+        """Validate identification (RIF SENIAT con prefijo V, E, R, C, G o J, o
+        documento de identificación de hasta 20 caracteres)."""
+        if not is_valid_identificacion_cliente(v):
             raise ValueError(
-                'Identificación Cliente Oferente inválida. '
-                'Debe tener prefijo V, E, P, R, C, G o J seguido de dígitos.'
+                'Identificación Cliente Oferente inválida (verifique el prefijo '
+                'V, E, R, C, G o J, el RIF emitido por SENIAT o el documento de identificación).'
             )
-        return v.upper()
+        return v.strip().upper()
 
     @field_validator('identificacion_cliente_demandante')
     def validate_id_demandante(cls, v):
-        """Validate identification format: prefix (V,E,P,R,C,G,J) followed by digits."""
-        rif_type, _ = parse_rif(v)
-        if not rif_type:
+        """Validate identification (RIF SENIAT con prefijo V, E, R, C, G o J, o
+        documento de identificación de hasta 20 caracteres)."""
+        if not is_valid_identificacion_cliente(v):
             raise ValueError(
-                'Identificación Cliente Demandante inválida. '
-                'Debe tener prefijo V, E, P, R, C, G o J seguido de dígitos.'
+                'Identificación Cliente Demandante inválida (verifique el prefijo '
+                'V, E, R, C, G o J, el RIF emitido por SENIAT o el documento de identificación).'
             )
-        return v.upper()
+        return v.strip().upper()
 
     @field_validator('codigo_cuenta_moneda_nacional_oferente')
     def validate_cuenta_nacional_oferente(cls, v):
@@ -155,9 +177,9 @@ class OperacionMesaDeCambioInput(Schema):
 
     @field_validator('codigo_cuenta_moneda_extranjera_oferente')
     def validate_cuenta_extranjera_oferente(cls, v):
-        """Account code must be exactly 20 numeric digits."""
-        if not VALID_ACCOUNT_PREFIXES.match(v):
-            raise ValueError('Código Cuenta Moneda Extranjera Oferente debe ser un número de exactamente 20 dígitos')
+        """API-04: la longitud de este campo es menor o igual a 20 dígitos."""
+        if not VALID_ACCOUNT_LE20.match(v):
+            raise ValueError('Código Cuenta Moneda Extranjera Oferente debe ser un número de máximo 20 dígitos')
         return v
 
     @field_validator('tipo_cuenta_moneda_nacional_cliente_oferente')
@@ -176,9 +198,9 @@ class OperacionMesaDeCambioInput(Schema):
 
     @field_validator('codigo_cuenta_moneda_nacional_demandante')
     def validate_cuenta_nacional_demandante(cls, v):
-        """Account code must be exactly 20 numeric digits."""
-        if not VALID_ACCOUNT_PREFIXES.match(v):
-            raise ValueError('Código Cuenta Moneda Nacional Demandante debe ser un número de exactamente 20 dígitos')
+        """API-04: la longitud de este campo es menor o igual a 20 dígitos."""
+        if not VALID_ACCOUNT_LE20.match(v):
+            raise ValueError('Código Cuenta Moneda Nacional Demandante debe ser un número de máximo 20 dígitos')
         return v
 
     @field_validator('codigo_cuenta_moneda_extranjera_demandante')
@@ -235,6 +257,7 @@ class OperacionMesaDeCambioOutput(Schema):
 
 class OperacionMesaDeCambioCorreccionInput(Schema):
     """Schema for correcting rejected mesa de cambio transactions."""
+    codigo_operacion: Optional[str] = Field(None, max_length=40)
     tipo_pacto: Optional[str] = None
     moneda: Optional[int] = None
     monto_divisa: Optional[Decimal] = None
@@ -256,6 +279,12 @@ class OperacionMesaDeCambioCorreccionInput(Schema):
     tipo_cuenta_moneda_extranjera_cliente_demandante: Optional[int] = None
     destino_fondos: Optional[int] = None
     medio_pago_demandante: Optional[int] = None
+
+    @field_validator('codigo_operacion', 'nombre_cliente_oferente', 'nombre_cliente_demandante')
+    def validate_texto_sin_simbolos(cls, v):
+        if v is None:
+            return v
+        return validate_nombre_cliente_util(v)
 
     @field_validator('moneda')
     def validate_moneda(cls, v):

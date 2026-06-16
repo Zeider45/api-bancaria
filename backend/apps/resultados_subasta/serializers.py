@@ -3,7 +3,10 @@ from pydantic import field_validator, Field, model_validator, condecimal
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from apps.core.utils import parse_rif, validate_rif_range
+from apps.core.utils import (
+    is_valid_identificacion_cliente,
+    validate_nombre_cliente as validate_nombre_cliente_util,
+)
 from apps.core import selectors as core_selectors
 
 # Use Decimal directly with pydantic validators if condecimal has issues in newer pydantic
@@ -37,7 +40,7 @@ class ResultadoSubastaInput(Schema):
 
     codigo_cuenta_moneda_nacional: str = Field(..., min_length=20, max_length=20)
     tipo_cuenta_moneda_nacional: int
-    codigo_cuenta_moneda_extranjera: str = Field(..., min_length=20, max_length=20)
+    codigo_cuenta_moneda_extranjera: str = Field(..., max_length=20)  # API-03: longitud menor o igual a 20
     tipo_cuenta_moneda_extranjera: int
 
     destino_fondos: int
@@ -67,8 +70,8 @@ class ResultadoSubastaInput(Schema):
         elif self.tipo_operacion == 9:
             if self.codigo_identificacion_subasta == "0":
                 raise ValueError('Si tipo_operacion es 9, codigo_identificacion_subasta no debe ser "0"')
-            if self.fecha_solicitud_cliente.date() != self.fecha_subasta.date():
-                raise ValueError('Si tipo_operacion es 9, fecha_solicitud_cliente debe ser igual a fecha_subasta')
+            if self.fecha_solicitud_cliente.date() > self.fecha_subasta.date():
+                raise ValueError('Si tipo_operacion es 9, fecha_solicitud_cliente debe ser menor o igual a fecha_subasta')
         else:
             raise ValueError('tipo_operacion debe ser 8 o 9')
 
@@ -76,8 +79,14 @@ class ResultadoSubastaInput(Schema):
         if self.estatus_solicitud_cliente == "SA":
             if self.monto_final_divisa <= 0:
                 raise ValueError('Si es SA, monto_final_divisa debe ser mayor a 0')
-            if self.tipo_cambio_final_bs <= 0:
-                raise ValueError('Si es SA, tipo_cambio_final_bs debe ser mayor a 0')
+            # Tipo Cambio Final Bs (API-03 - Fondo N°1 y N°3):
+            #  - Tipo Operación 8 (Recepción de Fondos del BCV): debe ser exactamente Bs 1.0000
+            #  - Tipo Operación 9 (Ventas por Subasta Privada) y SA: debe ser mayor a cero
+            if self.tipo_operacion == 8:
+                if self.tipo_cambio_final_bs != Decimal('1.0000'):
+                    raise ValueError('Si tipo_operacion es 8, tipo_cambio_final_bs debe ser igual a Bs 1.0000')
+            elif self.tipo_cambio_final_bs <= 0:
+                raise ValueError('Si es SA y tipo_operacion 9, tipo_cambio_final_bs debe ser mayor a 0')
             if self.destino_fondos == 0:
                 raise ValueError('Si es SA, destino_fondos no puede ser 0')
             if self.medio_pago != 2:
@@ -85,8 +94,9 @@ class ResultadoSubastaInput(Schema):
         elif self.estatus_solicitud_cliente == "SNA":
             if self.monto_final_divisa != 0:
                 raise ValueError('Si es SNA, monto_final_divisa debe ser 0')
-            if self.tipo_cambio_final_bs != 0:
-                raise ValueError('Si es SNA, tipo_cambio_final_bs debe ser 0')
+            # Tipo Cambio Final Bs (API-03 - Fondo N°2): SNA con Tipo Operación 9 => igual a cero
+            if self.tipo_operacion == 9 and self.tipo_cambio_final_bs != 0:
+                raise ValueError('Si es SNA y tipo_operacion 9, tipo_cambio_final_bs debe ser 0')
             if self.destino_fondos != 0:
                 raise ValueError('Si es SNA, destino_fondos debe ser 0')
             if self.medio_pago != 0:
@@ -98,12 +108,16 @@ class ResultadoSubastaInput(Schema):
 
     @field_validator('identificacion_cliente')
     def validate_rif(cls, v):
-        rif_type, rif_number = parse_rif(v)
-        if not rif_type:
-            raise ValueError('Formato RIF inválido.')
-        if not validate_rif_range(rif_type, rif_number):
-            raise ValueError('Número de RIF fuera de rango permitido')
-        return v.upper()
+        if not is_valid_identificacion_cliente(v):
+            raise ValueError(
+                'Identificación de cliente inválida (verifique el prefijo, el RIF '
+                'emitido por SENIAT o el documento de identificación)'
+            )
+        return v.strip().upper()
+
+    @field_validator('nombre_cliente')
+    def validate_nombre_cliente(cls, v):
+        return validate_nombre_cliente_util(v)
 
     @field_validator('moneda')
     def validate_moneda(cls, v):

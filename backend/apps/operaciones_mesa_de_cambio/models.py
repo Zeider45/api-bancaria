@@ -9,6 +9,14 @@ class OperacionMesaDeCambio(BaseModel):
     Manages and validates foreign exchange desk transactions.
     """
 
+    # Identificación de la operación (API-04)
+    codigo_operacion = models.CharField(
+        max_length=40,
+        default='',
+        blank=True,
+        help_text="Código de identificación único de la operación (API-04)"
+    )
+
     # Ente Supervisado
     identificacion_ente_supervisado = models.CharField(max_length=99)
 

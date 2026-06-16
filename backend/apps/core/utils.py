@@ -36,14 +36,28 @@ def format_amount(amount: Decimal, decimal_places: int = 4) -> str:
     return str(amount.quantize(Decimal(f'0.{"0" * decimal_places}'), rounding=ROUND_HALF_UP))
 
 
+# Prefijos de RIF válidos según los manuales SUDEBAN (actualización 09-06-2026):
+#   V (Venezolano), E (Extranjero), R (Registro de Firma Personal),
+#   C (Comuna y Consejos Comunales), G (Gobierno), J (Jurídico).
+# El prefijo "P" fue eliminado de la enumeración de prefijos válidos.
+RIF_STANDARD_PREFIXES = ('V', 'E', 'R', 'C', 'G', 'J')
+
+# Longitud máxima del campo 'Identificación Cliente'.
+IDENTIFICACION_CLIENTE_MAX_LEN = 20
+
+
 def parse_rif(rif: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Parse RIF into prefix and number
-    Returns (prefix, number)
+    Parse RIF into prefix and number.
+
+    Returns (prefix, number) for the standard prefixes (V, E, R, C, G, J) with a
+    numeric portion of up to 9 digits; otherwise (None, None).
     """
-    pattern = r'^([VEJPGCR])(\d+)$'
-    match = re.match(pattern, rif.strip().upper())
-    
+    if rif is None:
+        return None, None
+    pattern = r'^([VERCGJ])(\d{1,9})$'
+    match = re.match(pattern, str(rif).strip().upper())
+
     if match:
         return match.group(1), match.group(2)
     return None, None
@@ -51,20 +65,72 @@ def parse_rif(rif: str) -> Tuple[Optional[str], Optional[str]]:
 
 def validate_rif_range(rif_type: str, rif_number: str) -> bool:
     """
-    Validate RIF number ranges based on type
+    Validate the numeric portion of a RIF.
+
+    Per the SUDEBAN manuals (09-06-2026 update), for the standard prefixes
+    (V, E, R, C, G, J) the numeric portion must correspond to a RIF issued by
+    SENIAT, i.e. it must be distinct from zero. The previous fixed ranges
+    (V: 1..40.000.000; E: 1..1.500.000 / 80.000.000..100.000.000) no longer apply.
     """
     try:
         num = int(rif_number)
-        
-        if rif_type == 'V':  # Venezolano
-            return 1 <= num <= 40000000
-        elif rif_type == 'E':  # Extranjero
-            return (1 <= num <= 1500000) or (80000000 <= num <= 100000000)
-        elif rif_type in ['J', 'G', 'C', 'R']:  # Legal entities
-            return True  # Format validated by SENIAT, accept all
+    except (ValueError, TypeError):
         return False
-    except ValueError:
+
+    if rif_type in RIF_STANDARD_PREFIXES:
+        return num != 0
+    return False
+
+
+def is_valid_identificacion_cliente(value: str) -> bool:
+    """
+    Validate the 'Identificación Cliente' field per the SUDEBAN manuals.
+
+    - Standard prefix (V, E, R, C, G, J): numeric portion of up to 9 digits,
+      distinct from zero (RIF issued by SENIAT).
+    - Any other prefix/format: identity document of the client at the regulated
+      entity, with a maximum of 20 characters.
+    """
+    if value is None:
         return False
+    v = str(value).strip().upper()
+    if not v or v == '0':
+        return False
+    prefix, number = parse_rif(v)
+    if prefix:
+        return validate_rif_range(prefix, number)
+    return len(v) <= IDENTIFICACION_CLIENTE_MAX_LEN
+
+
+# Caracteres y símbolos no permitidos en los campos de tipo "TEXTO" según los
+# manuales SUDEBAN (Sección IV, "Generación", literal c, y reglas de validación
+# de fondo de 'Nombre del Cliente' / 'Código de la Operación').
+#
+# Nota: se excluyen deliberadamente el punto ".", la coma "," y el guion "-" del
+# conjunto prohibido porque forman parte de denominaciones legítimas (por
+# ejemplo, razones sociales como "MARIANA C.A.", usada en los propios ejemplos
+# de los manuales). El conjunto se centraliza aquí para mantener consistencia
+# entre todas las APIs.
+NOMBRE_CLIENTE_FORBIDDEN_CHARS = set('@*/+"\'[](){}|\\#$^%&_=÷×;:¿?¡!<>')
+
+
+def validate_nombre_cliente(value: str) -> str:
+    """
+    Validate a client name / free TEXT field per the SUDEBAN manuals.
+
+    The value must be distinct from Zero ('0'), empty and Null, and must not
+    contain any of the forbidden characters/symbols defined in
+    ``NOMBRE_CLIENTE_FORBIDDEN_CHARS``. Returns the trimmed value.
+    """
+    if value is None:
+        raise ValueError("El valor es requerido (no puede ser Null)")
+    v = str(value).strip()
+    if v == '' or v == '0':
+        raise ValueError("El valor no puede ser Cero ('0'), 'Vacío' ni Null")
+    found = sorted({c for c in v if c in NOMBRE_CLIENTE_FORBIDDEN_CHARS})
+    if found:
+        raise ValueError("Contiene caracteres o símbolos no permitidos: " + " ".join(found))
+    return v
 
 
 def build_error_response(error_code: int, detail: str) -> Dict[str, Any]:
@@ -127,6 +193,7 @@ _SUDEBAN_ERROR_MESSAGES_BY_API: Dict[str, Dict[int, str]] = {
     # API-01: Intervención Cambiaria a través del BCV
     'API-01': {
         **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        1048576: "Error hash duplicado en la transacción",
         8388608: "Validación de los campos: 'Fecha Intervención', 'Fecha Operación Cliente'",
     },
     # API-02: Libro de órdenes Subasta Privada
@@ -142,6 +209,7 @@ _SUDEBAN_ERROR_MESSAGES_BY_API: Dict[str, Dict[int, str]] = {
     # API-04: Operaciones a través de Mesas de Cambio
     'API-04': {
         **_SUDEBAN_ERROR_MESSAGES_DEFAULT,
+        1048576: "Error hash duplicado en la transacción",
         8388608: "Validación de los campos: 'Fecha Pacto'",
     },
 }
