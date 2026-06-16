@@ -9,7 +9,7 @@ from apps.operaciones_mesa_de_cambio import services
 
 class SendPendingMesaDeCambioTests(TestCase):
     @override_settings(
-        SUDEBAN_API_URL="https://sudeban.example.test/transmission",
+        SUDEBAN_API_URL="https://sudeban.example.test/api/transmission",
         SUDEBAN_USERNAME="user",
         SUDEBAN_PASSWORD="pass",
         SUDEBAN_ID_ENTIDAD_BANCARIA="0108",
@@ -30,7 +30,7 @@ class SendPendingMesaDeCambioTests(TestCase):
         mock_send_transaction.assert_called_once()
         endpoint, payload = mock_send_transaction.call_args.args
 
-        self.assertEqual(endpoint, "mesa-de-cambio")
+        self.assertEqual(endpoint, "mesa-cambio")
         self.assertEqual(payload["idEntidadBancaria"], "0108")
         self.assertEqual(payload["transacciones"], [])
         self.assertEqual(payload["webhookUrl"], "https://webhook.example.test")

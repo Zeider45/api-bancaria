@@ -181,7 +181,7 @@ def send_to_sudeban(
     
     # Send to SUDEBAN (API-02 endpoint)
     result = client.send_transaction(
-        'subasta-privada',  # Endpoint for API-02
+        'libro-ordenes-subasta',  # Endpoint for API-02
         batch.dict()
     )
     

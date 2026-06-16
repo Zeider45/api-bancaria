@@ -196,7 +196,7 @@ def send_to_sudeban(
     )
 
     result = client.send_transaction(
-        'api-03/resultados-subasta',
+        'resultados-subasta',
         batch.dict(),
     )
 

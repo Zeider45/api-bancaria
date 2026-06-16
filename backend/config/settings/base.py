@@ -162,7 +162,8 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 
 # SUDEBAN configuration (shared)
-SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeban.gob.ve/transmission')
+# Default points to the demo environment. Override via SUDEBAN_API_URL.
+SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones-demo.sudeban.gob.ve/api/transmission')
 SUDEBAN_USERNAME = os.environ.get('SUDEBAN_USERNAME')
 SUDEBAN_PASSWORD = os.environ.get('SUDEBAN_PASSWORD')
 SUDEBAN_WEBHOOK_URL = os.environ.get('SUDEBAN_WEBHOOK_URL')

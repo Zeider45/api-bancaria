@@ -5,7 +5,7 @@ DEBUG = False
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
 # SUDEBAN VPN Configuration
-SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones.sudeban.gob.ve/transmission')
+SUDEBAN_API_URL = os.environ.get('SUDEBAN_API_URL', 'https://transacciones-demo.sudeban.gob.ve/api/transmission')
 SUDEBAN_USERNAME = os.environ.get('SUDEBAN_USERNAME')
 SUDEBAN_PASSWORD = os.environ.get('SUDEBAN_PASSWORD')
 SUDEBAN_WEBHOOK_URL = os.environ.get('SUDEBAN_WEBHOOK_URL')

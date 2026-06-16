@@ -228,7 +228,7 @@ def send_to_sudeban(
     )
 
     result = client.send_transaction(
-        'mesa-de-cambio',
+        'mesa-cambio',
         batch.dict(),
     )
 

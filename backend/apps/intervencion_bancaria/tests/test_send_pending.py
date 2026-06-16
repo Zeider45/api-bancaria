@@ -9,7 +9,7 @@ from apps.intervencion_bancaria import services
 
 class SendPendingIntervencionTests(TestCase):
     @override_settings(
-        SUDEBAN_API_URL="https://sudeban.example.test/transmission",
+        SUDEBAN_API_URL="https://sudeban.example.test/api/transmission",
         SUDEBAN_USERNAME="user",
         SUDEBAN_PASSWORD="pass",
         SUDEBAN_ID_ENTIDAD_BANCARIA="0108",

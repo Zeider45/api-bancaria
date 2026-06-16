@@ -9,7 +9,7 @@ from apps.subasta_privada import services
 
 class SendPendingSubastaTests(TestCase):
     @override_settings(
-        SUDEBAN_API_URL="https://sudeban.example.test/transmission",
+        SUDEBAN_API_URL="https://sudeban.example.test/api/transmission",
         SUDEBAN_USERNAME="user",
         SUDEBAN_PASSWORD="pass",
         SUDEBAN_ID_ENTIDAD_BANCARIA="0108",
@@ -30,7 +30,7 @@ class SendPendingSubastaTests(TestCase):
         mock_send_transaction.assert_called_once()
         endpoint, payload = mock_send_transaction.call_args.args
 
-        self.assertEqual(endpoint, "subasta-privada")
+        self.assertEqual(endpoint, "libro-ordenes-subasta")
         self.assertEqual(payload["idEntidadBancaria"], "0108")
         self.assertEqual(payload["transacciones"], [])
         self.assertEqual(payload["webhookUrl"], "https://webhook.example.test")

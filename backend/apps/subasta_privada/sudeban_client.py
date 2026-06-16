@@ -13,7 +13,7 @@ class SudebanSubastaClient:
     
     def __init__(self):
         self.base_url = settings.SUDEBAN_API_URL
-        self.endpoint = "subasta-privada"
+        self.endpoint = "libro-ordenes-subasta"
         self.username = settings.SUDEBAN_USERNAME
         self.password = settings.SUDEBAN_PASSWORD
         self.timeout = 30
